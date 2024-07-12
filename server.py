@@ -1,11 +1,10 @@
 """
 Runs a web server for retrieving gathering and crafting data.
 """
+# pylint: disable=abstract-method
 import asyncio
 import json
 from tornado.web import Application, RequestHandler
-
-# pylint: disable=abstract-method
 
 botany_items = []
 mining_items = []
