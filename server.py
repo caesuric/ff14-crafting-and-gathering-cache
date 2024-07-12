@@ -56,7 +56,7 @@ def grab_items_for_level_range(items, min_level, max_level):
     """
     min_level = int(min_level)
     max_level = int(max_level)
-    return [item for item in items if min_level <= item['level'] <= max_level]
+    return [item['id'] for item in items if min_level <= item['level'] <= max_level]
 
 class BotanyItemsHandler(RequestHandler):
     """
