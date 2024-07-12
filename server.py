@@ -1,0 +1,83 @@
+import asyncio
+import json
+from tornado.web import Application, RequestHandler
+
+botany_items = []
+mining_items = []
+fishing_items = []
+crafting_items = {}
+
+def load_json_file(file_name, variable):
+    with open(f'data/{file_name}.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        variable.extend(data)
+
+def load_crafting_items(file_name):
+    with open(f'data/{file_name}.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        for k,v in data.items():
+            crafting_items[k] = v
+
+async def main():
+    load_json_file('botany', botany_items)
+    load_json_file('mining', mining_items)
+    load_json_file('fishing', fishing_items)
+    load_crafting_items('crafting')
+    application = Application([
+        (r'^/rest/botany-items/(.+)-(.+)$', BotanyItemsHandler),
+        (r'^/rest/mining-items/(.+)-(.+)$', MiningItemsHandler),
+        (r'^/rest/fishing-items/(.+)-(.+)$', FishingItemsHandler),
+        (r'^/rest/crafting-items/(.*)/(.+)-(.+)$', CraftingItemsHandler),
+        (r'^/rest/crafting-types/$', CraftingTypesHandler),
+        (r'^/rest/botany-items-count/(.+)-(.+)$', BotanyItemsCountHandler),
+        (r'^/rest/mining-items-count/(.+)-(.+)$', MiningItemsCountHandler),
+        (r'^/rest/fishing-items-count/(.+)-(.+)$', FishingItemsCountHandler),
+        (r'^/rest/crafting-items-count/(.*)/(.+)-(.+)$', CraftingItemsCountHandler),
+    ])
+    application.listen(1414)
+    await asyncio.Event().wait()
+
+def grab_items_for_level_range(items, min_level, max_level):
+    min_level = int(min_level)
+    max_level = int(max_level)
+    return [item for item in items if min_level <= item['level'] <= max_level]
+
+class BotanyItemsHandler(RequestHandler):
+    def get(self, min_level, max_level):
+        self.write(json.dumps(grab_items_for_level_range(botany_items, min_level, max_level)))
+
+class MiningItemsHandler(RequestHandler):
+    def get(self, min_level, max_level):
+        self.write(json.dumps(grab_items_for_level_range(mining_items, min_level, max_level)))
+
+class FishingItemsHandler(RequestHandler):
+    def get(self, min_level, max_level):
+        self.write(json.dumps(grab_items_for_level_range(fishing_items, min_level, max_level)))
+
+class CraftingItemsHandler(RequestHandler):
+    def get(self, crafting_type, min_level, max_level):
+        self.write(json.dumps(grab_items_for_level_range(crafting_items[crafting_type], min_level, max_level)))
+
+class CraftingTypesHandler(RequestHandler):
+    def get(self):
+        self.write(json.dumps(list(crafting_items.keys())))
+
+class BotanyItemsCountHandler(RequestHandler):
+    def get(self, min_level, max_level):
+        self.write(str(len(grab_items_for_level_range(botany_items, min_level, max_level))))
+
+class MiningItemsCountHandler(RequestHandler):
+    def get(self, min_level, max_level):
+        self.write(str(len(grab_items_for_level_range(mining_items, min_level, max_level))))
+
+class FishingItemsCountHandler(RequestHandler):
+    def get(self, min_level, max_level):
+        self.write(str(len(grab_items_for_level_range(fishing_items, min_level, max_level))))
+
+class CraftingItemsCountHandler(RequestHandler):
+    def get(self, crafting_type, min_level, max_level):
+        self.write(str(len(grab_items_for_level_range(crafting_items[crafting_type], min_level, max_level))))
+
+if __name__=='__main__':
+    print('Starting server.')
+    asyncio.run(main())
