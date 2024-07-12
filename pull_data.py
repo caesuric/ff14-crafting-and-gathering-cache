@@ -24,7 +24,7 @@ def get_data_for_page(base_url, i):
             if i == 0:
                 req = requests.get(base_url, timeout=30)
             else:
-                req = requests.get(f'{base_url}&after={i - 1}', timeout=30)
+                req = requests.get(f'{base_url}&after={i}', timeout=30)
             if req.status_code != 200:
                 print(f'Retrying for {base_url} for results from {i}')
                 retries -= 1
@@ -45,7 +45,7 @@ def get_paginated_data(base_url):
     sub_data = get_data_for_page(base_url, i)
     while len(sub_data) > 0:
         data.extend(sub_data)
-        i += 100
+        i = sub_data[-1]['row_id']
         sub_data = get_data_for_page(base_url, i)
     return data
 
@@ -97,6 +97,17 @@ def get_gathering_items():
                 }
             )
 
+def convert_gathering_item_levels():
+    """
+    Converts gathering item levels to raw levels.
+    """
+    print('Converting gathering item levels...')
+    url = construct_xivapi_url('GatheringItemLevelConvertTable', ['GatheringItemLevel'])
+    level_conversions = get_paginated_data(url)
+    for item in items:
+        lookup = level_conversions[item['level']]
+        item['level'] = lookup['fields']['GatheringItemLevel']
+
 def sort_mining_and_botany_items():
     """
     Sorts mining and botany items.
@@ -136,7 +147,7 @@ def get_recipes():
         [
             'CraftType.Name',
             'ItemResult.Value',
-            'RecipeLevelTable.value'
+            'RecipeLevelTable.ClassJobLevel'
         ]
     )
     recipes = get_paginated_data(url)
@@ -145,7 +156,7 @@ def get_recipes():
             continue
         craft_type = recipe['fields']['CraftType']['fields']['Name']
         item_id = recipe['fields']['ItemResult']['value']
-        item_level = recipe['fields']['RecipeLevelTable']['value']
+        item_level = recipe['fields']['RecipeLevelTable']['fields']['ClassJobLevel']
         if craft_type not in crafting_items:
             crafting_items[craft_type] = []
         crafting_items[craft_type].append({'id': item_id, 'level': item_level})
@@ -156,6 +167,7 @@ def pull_data():
     """
     get_gathering_points()
     get_gathering_items()
+    convert_gathering_item_levels()
     sort_mining_and_botany_items()
     get_fishing_spots()
     get_recipes()
