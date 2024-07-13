@@ -4,6 +4,7 @@ Runs a web server for retrieving gathering and crafting data.
 # pylint: disable=abstract-method
 import asyncio
 import json
+import tornado.httpserver
 from tornado.web import Application, RequestHandler
 
 botany_items = []
@@ -47,7 +48,8 @@ async def main():
         (r'^/rest/fishing-items-count/(.+)-(.+)$', FishingItemsCountHandler),
         (r'^/rest/crafting-items-count/(.*)/(.+)-(.+)$', CraftingItemsCountHandler),
     ])
-    application.listen(1414)
+    http_server = tornado.httpserver.HTTPServer(application, ssl_options=dict(certfile="/etc/letsencrypt/live/xivmarketstats.com/fullchain.pem", keyfile="/etc/letsencrypt/live/xivmarketstats.com/privkey.pem"))
+    http_server.listen(1414)
     await asyncio.Event().wait()
 
 def grab_items_for_level_range(items, min_level, max_level):
