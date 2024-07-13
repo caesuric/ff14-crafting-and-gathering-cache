@@ -60,7 +60,23 @@ def grab_items_for_level_range(items, min_level, max_level):
     max_level = int(max_level)
     return [item['id'] for item in items if min_level <= item['level'] <= max_level]
 
-class BotanyItemsHandler(RequestHandler):
+class BaseHandler(RequestHandler):
+    """
+    Base handler that enables CORS.
+    """
+    def set_default_headers(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Headers", "x-requested-with")
+        self.set_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+
+    def options(self, *args):
+        """
+        Sets options for the request.
+        """
+        self.set_status(204)
+        self.finish()
+
+class BotanyItemsHandler(BaseHandler):
     """
     Request handler for botany items.
     """
@@ -70,7 +86,7 @@ class BotanyItemsHandler(RequestHandler):
         """
         self.write(json.dumps(grab_items_for_level_range(botany_items, min_level, max_level)))
 
-class MiningItemsHandler(RequestHandler):
+class MiningItemsHandler(BaseHandler):
     """
     Request handler for mining items.
     """
@@ -80,7 +96,7 @@ class MiningItemsHandler(RequestHandler):
         """
         self.write(json.dumps(grab_items_for_level_range(mining_items, min_level, max_level)))
 
-class FishingItemsHandler(RequestHandler):
+class FishingItemsHandler(BaseHandler):
     """
     Request handler for fishing items.
     """
@@ -90,7 +106,7 @@ class FishingItemsHandler(RequestHandler):
         """
         self.write(json.dumps(grab_items_for_level_range(fishing_items, min_level, max_level)))
 
-class CraftingItemsHandler(RequestHandler):
+class CraftingItemsHandler(BaseHandler):
     """
     Request handler for crafting items
     """
@@ -108,7 +124,7 @@ class CraftingItemsHandler(RequestHandler):
             )
         )
 
-class CraftingTypesHandler(RequestHandler):
+class CraftingTypesHandler(BaseHandler):
     """
     Request handler for crafting types.
     """
@@ -118,7 +134,7 @@ class CraftingTypesHandler(RequestHandler):
         """
         self.write(json.dumps(list(crafting_items.keys())))
 
-class BotanyItemsCountHandler(RequestHandler):
+class BotanyItemsCountHandler(BaseHandler):
     """
     Request handler for botany item count.
     """
@@ -128,7 +144,7 @@ class BotanyItemsCountHandler(RequestHandler):
         """
         self.write(str(len(grab_items_for_level_range(botany_items, min_level, max_level))))
 
-class MiningItemsCountHandler(RequestHandler):
+class MiningItemsCountHandler(BaseHandler):
     """
     Request handler for mining item count.
     """
@@ -138,7 +154,7 @@ class MiningItemsCountHandler(RequestHandler):
         """
         self.write(str(len(grab_items_for_level_range(mining_items, min_level, max_level))))
 
-class FishingItemsCountHandler(RequestHandler):
+class FishingItemsCountHandler(BaseHandler):
     """
     Request handler for fishing item count.
     """
@@ -148,7 +164,7 @@ class FishingItemsCountHandler(RequestHandler):
         """
         self.write(str(len(grab_items_for_level_range(fishing_items, min_level, max_level))))
 
-class CraftingItemsCountHandler(RequestHandler):
+class CraftingItemsCountHandler(BaseHandler):
     """
     Request handler for crafting item count.
     """
