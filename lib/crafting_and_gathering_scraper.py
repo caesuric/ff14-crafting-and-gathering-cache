@@ -1,12 +1,16 @@
 """
-Pulls data on craftable and gatherable items, and stores it in JSON files.
+Data scraper for crafting and gathering lists.
 """
-import json
-import os
-import requests
+from datetime import datetime, time, timezone
+from threading import Thread
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
+from lib.constants import CRAFTING_AND_GATHERING_DATA_SCHEDULE_IN_DAYS
+from lib.database_engine import ItemData, OverallScrapingData
+from lib.scraping_utils import make_get_request
 
-mining_types = [0,1]
-botany_types = [2,3]
+mining_types = [0, 1]
+botany_types = [2, 3]
 gathering_items_for_lookup = {}
 items = []
 mining_items = []
@@ -14,27 +18,107 @@ botany_items = []
 fishing_items = []
 crafting_items = {}
 
+
+def start_crafting_and_gathering_scraper(engine: Engine):
+    """
+    Kicks off the thread for crafting and gathering data scraping.
+
+    Args:
+        engine (Engine): SQLAlchemy engine.
+    """
+    scraper_process = Thread(target=scraper_main_thread, args=(engine,))
+    scraper_process.start()
+
+
+def scraper_main_thread(engine: Engine):
+    """
+    Main thread for crafting and gathering data scraping.
+
+    Args:
+        engine (Engine): SQLAlchemy engine.
+    """
+    with Session(engine) as session:
+        overall_data = session.query(OverallScrapingData).first()
+        if overall_data is None:
+            overall_data = OverallScrapingData()
+            session.add(overall_data)
+            session.commit()
+        while True:
+            if (
+                overall_data.crafting_and_gathering_data_last_pull is None or
+                is_old(overall_data.crafting_and_gathering_data_last_pull)
+            ):
+                overall_data.crafting_and_gathering_data_last_pull = datetime.now(timezone.utc)
+                session.add(overall_data)
+                pull_data()
+                store_data(session)
+            time.sleep(24 * 60 * 60)
+
+
+def update_item_in_database(item: dict, item_type: str, session: Session):
+    """
+    Updates an item in the database.
+
+    Args:
+        item (dict): Item data.
+        item_type (str): Type of item.
+        session (Session): SQLAlchemy session.
+    """
+    entry = session.query(ItemData).filter_by(id=item['id']).first()
+    if entry is None:
+        entry = ItemData()
+    if not entry.source_classes.contains(item_type):
+        entry.source_classes.append(item_type)
+        entry.source_class_levels.append(item['level'])
+    else:
+        index = entry.source_classes.index(item_type)
+        entry.source_class_levels[index] = item['level']
+    session.add(entry)
+
+
+def store_data(session: Session):
+    """
+    Stores the crafting and gathering data in the database.
+
+    Args:
+        session (Session): SQLAlchemy session.
+    """
+    for item in mining_items:
+        update_item_in_database(item, 'Mining', session)
+    for item in botany_items:
+        update_item_in_database(item, 'Botany', session)
+    for item in fishing_items:
+        update_item_in_database(item, 'Fishing', session)
+    for craft_type, subtype_items in crafting_items.items():
+        for item in subtype_items:
+            update_item_in_database(item, craft_type, session)
+    session.commit()
+
+
+def is_old(last_pull: datetime) -> bool:
+    """
+    Determines if the last pull has expired.
+
+    Args:
+        last_pull (datetime): The last time data was pulled.
+
+    Returns:
+        bool: True if the data is old, otherwise False.
+    """
+    now = datetime.now()
+    return now - last_pull >= CRAFTING_AND_GATHERING_DATA_SCHEDULE_IN_DAYS
+
+
 def get_data_for_page(base_url, i):
     """
     Retrieves data from XIVAPI starting from a specific result.
     """
-    retries = 10
-    while retries > 0:
-        try:
-            if i == 0:
-                req = requests.get(base_url, timeout=30)
-            else:
-                req = requests.get(f'{base_url}&after={i}', timeout=30)
-            if req.status_code != 200:
-                print(f'Retrying for {base_url} for results from {i}')
-                retries -= 1
-                continue
-            return req.json()['rows']
-        except ConnectionError:
-            print(f'Retrying for {base_url} for results from {i}')
-            retries -= 1
-    print(f'OUT OF RETRIES FOR {base_url} for results from {i}')
-    return []
+    if i == 0:
+        req = make_get_request(base_url)
+    else:
+        req = make_get_request(f'{base_url}&after={i}')
+    return req.json()['rows']
+
 
 def get_paginated_data(base_url):
     """
@@ -49,11 +133,13 @@ def get_paginated_data(base_url):
         sub_data = get_data_for_page(base_url, i)
     return data
 
+
 def construct_xivapi_url(sheet_name, fields):
     """
     Constructs a URL for XIVAPI with fields.
     """
     return f'https://beta.xivapi.com/api/1/sheet/{sheet_name}?fields={",".join(fields)}'
+
 
 def get_gathering_points():
     """
@@ -79,6 +165,7 @@ def get_gathering_points():
                 'level': item['fields']['GatheringItemLevel']['value']
             }
 
+
 def get_gathering_items():
     """
     Retrieves gathering items from XIVAPI.
@@ -97,16 +184,19 @@ def get_gathering_items():
                 }
             )
 
+
 def convert_gathering_item_levels():
     """
     Converts gathering item levels to raw levels.
     """
     print('Converting gathering item levels...')
-    url = construct_xivapi_url('GatheringItemLevelConvertTable', ['GatheringItemLevel'])
+    url = construct_xivapi_url('GatheringItemLevelConvertTable', [
+                               'GatheringItemLevel'])
     level_conversions = get_paginated_data(url)
     for item in items:
         lookup = level_conversions[item['level']]
         item['level'] = lookup['fields']['GatheringItemLevel']
+
 
 def sort_mining_and_botany_items():
     """
@@ -119,12 +209,14 @@ def sort_mining_and_botany_items():
         elif item['type'] in botany_types:
             botany_items.append({'id': item['id'], 'level': item['level']})
 
+
 def get_fishing_spots():
     """
     Retrieves fishing spots from XIVAPI.
     """
     print('Retrieving fishing spots...')
-    url = construct_xivapi_url('FishingSpot', ['Item[].value', 'GatheringLevel'])
+    url = construct_xivapi_url(
+        'FishingSpot', ['Item[].value', 'GatheringLevel'])
     fishing_spots = get_paginated_data(url)
     for fishing_spot in fishing_spots:
         for item in fishing_spot['fields']['Item']:
@@ -136,6 +228,7 @@ def get_fishing_spots():
                     'level': fishing_spot['fields']['GatheringLevel']
                 }
             )
+
 
 def get_recipes():
     """
@@ -161,43 +254,20 @@ def get_recipes():
             crafting_items[craft_type] = []
         crafting_items[craft_type].append({'id': item_id, 'level': item_level})
 
+
 def pull_data():
     """
     Pulls crafting and gathering data from XIVAPI.
     """
+    gathering_items_for_lookup.clear()
+    items.clear()
+    mining_items.clear()
+    botany_items.clear()
+    fishing_items.clear()
+    crafting_items.clear()
     get_gathering_points()
     get_gathering_items()
     convert_gathering_item_levels()
     sort_mining_and_botany_items()
     get_fishing_spots()
     get_recipes()
-
-def write_file(file_name, data):
-    """
-    Writes data to a file
-    """
-    with open(f'data/{file_name}.json', 'w', encoding='utf-8') as f:
-        f.write(json.dumps(data))
-
-def main():
-    """
-    Main function that pulls data and stores it in JSON files
-    """
-    pull_data()
-    if not os.path.exists('data') or not os.path.isdir('data'):
-        os.mkdir('data')
-    write_file('mining', mining_items)
-    write_file('botany', botany_items)
-    write_file('fishing', fishing_items)
-    write_file('crafting', crafting_items)
-    print('Data successfully pulled and stored in JSON files.')
-    print(f'Mining items: {len(mining_items)}')
-    print(f'Botany items: {len(botany_items)}')
-    print(f'Fishing items: {len(fishing_items)}')
-    crafting_item_total = 0
-    for _,v in crafting_items.items():
-        crafting_item_total += len(v)
-    print(f'Crafting items: {crafting_item_total}')
-
-if __name__=='__main__':
-    main()

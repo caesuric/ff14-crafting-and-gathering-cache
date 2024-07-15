@@ -1,8 +1,11 @@
 {
   "cSpell.words": [
     "craftable",
+    "fullchain",
     "gatherable",
+    "httputil",
     "ioloop",
+    "privkey",
     "psycopg",
     "sqlalchemy",
     "UNIVERSALIS",

@@ -4,7 +4,7 @@ Database models and setup.
 #pylint: disable=too-few-public-methods
 import json
 import os.path
-from sqlalchemy import create_engine, Column, DateTime, Float, Integer, String
+from sqlalchemy import create_engine, ARRAY, Column, DateTime, Float, Integer, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy_utils import database_exists, create_database
@@ -27,6 +27,7 @@ class OverallScrapingData(Base):
     total_item_market_pulls = Column(Integer)
     average_historical_item_market_pull_time_in_seconds = Column(Float)
     total_historical_item_market_pulls = Column(Integer)
+    crafting_and_gathering_data_last_pull = Column(DateTime)
 
 
 class ItemData(Base):
@@ -40,8 +41,8 @@ class ItemData(Base):
     name = Column(String)
     icon_path = Column(String)
     last_data_pull = Column(DateTime)
-    source_class = Column(String)
-    source_class_level = Column(Integer)
+    source_classes = Column(ARRAY(String))
+    source_class_levels = Column(ARRAY(Integer))
 
 
 class ItemMarketDataCurrent(Base):

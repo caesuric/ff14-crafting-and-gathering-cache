@@ -3,7 +3,7 @@ Functions for pulling data from XIVAPI.
 """
 import datetime
 import math
-from typing import Optional
+from typing import Generator, Optional
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
@@ -34,7 +34,7 @@ def pull_basic_item_data(item_id: int) -> Optional[dict]:
     return response.json()
 
 
-def get_basic_item_data(item_ids: list[int], engine: Engine) -> dict:
+def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict]:
     """
     Retrieves basic item data from the database if it exists, otherwise pulls it from XIVAPI.
 
@@ -43,7 +43,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> dict:
         engine (Engine): SQLAlchemy engine.
 
     Returns:
-        dict: Basic item data for each ID, or operation status if not complete.
+        dict: Basic item data for each ID, plus operation status.
     """
     with Session(engine) as session:
         statement = select(ItemData).where(ItemData.id.in_(item_ids))
@@ -113,13 +113,20 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> dict:
                 average_item_market_pull_time_in_seconds=None,
                 total_item_market_pulls=None,
                 average_historical_item_market_pull_time_in_seconds=None,
-                total_historical_item_market_pulls=None
+                total_historical_item_market_pulls=None,
+                crafting_and_gathering_data_last_pull=None
             )
         else:
-            total_duration = (
-                overall_scraping_data.average_item_data_pull_time_in_seconds *
-                overall_scraping_data.total_item_data_pulls
-            )
+            if (
+                not overall_scraping_data.average_item_data_pull_time_in_seconds or
+                not overall_scraping_data.total_item_data_pulls
+            ):
+                total_duration = 0
+            else:
+                total_duration = (
+                    overall_scraping_data.average_item_data_pull_time_in_seconds *
+                    overall_scraping_data.total_item_data_pulls
+                )
             total_duration += operation_duration.total_seconds()
             overall_scraping_data.total_item_data_pulls += len(item_ids)
             overall_scraping_data.average_item_data_pull_time_in_seconds = (
