@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from lib.constants import CRAFTING_AND_GATHERING_DATA_SCHEDULE_IN_DAYS
 from lib.database_engine import ItemData, OverallScrapingData
 from lib.scraping_utils import make_get_request
+from lib.xivapi_data import get_basic_item_data
 
 mining_types = [0, 1]
 botany_types = [2, 3]
@@ -51,11 +52,11 @@ def scraper_main_thread(engine: Engine):
                 overall_data.crafting_and_gathering_data_last_pull = datetime.now(timezone.utc)
                 session.add(overall_data)
                 pull_data()
-                store_data(session)
+                store_data(session, engine)
             time.sleep(24 * 60 * 60)
 
 
-def update_item_in_database(item: dict, item_type: str, session: Session):
+def update_item_in_database(item: dict, item_type: str, session: Session, engine: Engine):
     """
     Updates an item in the database.
 
@@ -63,10 +64,15 @@ def update_item_in_database(item: dict, item_type: str, session: Session):
         item (dict): Item data.
         item_type (str): Type of item.
         session (Session): SQLAlchemy session.
+        engine (Engine): SQLAlchemy engine.
     """
     entry = session.query(ItemData).filter_by(id=item['id']).first()
     if entry is None:
-        entry = ItemData()
+        for _ in get_basic_item_data([item['id']], engine):
+            pass
+        entry = session.query(ItemData).filter_by(id=item['id']).first()
+        entry.source_classes = []
+        entry.source_class_levels = []
     if not entry.source_classes.contains(item_type):
         entry.source_classes.append(item_type)
         entry.source_class_levels.append(item['level'])
@@ -76,23 +82,30 @@ def update_item_in_database(item: dict, item_type: str, session: Session):
     session.add(entry)
 
 
-def store_data(session: Session):
+def store_data(session: Session, engine: Engine):
     """
     Stores the crafting and gathering data in the database.
 
     Args:
         session (Session): SQLAlchemy session.
+        engine (Engine): SQLAlchemy engine.
     """
+    print('Storing data in database...')
+    print('\tMining items...')
     for item in mining_items:
-        update_item_in_database(item, 'Mining', session)
+        update_item_in_database(item, 'Mining', session, engine)
+    print('\tBotany items...')
     for item in botany_items:
-        update_item_in_database(item, 'Botany', session)
+        update_item_in_database(item, 'Botany', session, engine)
+    print('\tFishing items...')
     for item in fishing_items:
-        update_item_in_database(item, 'Fishing', session)
+        update_item_in_database(item, 'Fishing', session, engine)
+    print('\tCrafting items...')
     for craft_type, subtype_items in crafting_items.items():
         for item in subtype_items:
-            update_item_in_database(item, craft_type, session)
+            update_item_in_database(item, craft_type, session, engine)
     session.commit()
+    print('\tDONE.')
 
 
 def is_old(last_pull: datetime) -> bool:
@@ -259,6 +272,7 @@ def pull_data():
     """
     Pulls crafting and gathering data from XIVAPI.
     """
+    print('Pulling crafting and gathering data...')
     gathering_items_for_lookup.clear()
     items.clear()
     mining_items.clear()

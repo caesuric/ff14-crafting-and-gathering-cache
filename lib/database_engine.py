@@ -37,7 +37,6 @@ class ItemData(Base):
     __tablename__ = 'item_data'
 
     id = Column(Integer, primary_key=True)
-    level = Column(Integer)
     name = Column(String)
     icon_path = Column(String)
     last_data_pull = Column(DateTime)

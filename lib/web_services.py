@@ -44,10 +44,10 @@ async def start_web_server(engine: Engine):
     ])
     http_server = tornado.httpserver.HTTPServer(
         application,
-        ssl_options={
-            'certfile': '/etc/letsencrypt/live/xivmarketstats.com/fullchain.pem',
-            'keyfile': '/etc/letsencrypt/live/xivmarketstats.com/privkey.pem'
-        }
+        # ssl_options={
+        #     'certfile': '/etc/letsencrypt/live/xivmarketstats.com/fullchain.pem',
+        #     'keyfile': '/etc/letsencrypt/live/xivmarketstats.com/privkey.pem'
+        # }
     )
     http_server.listen(1414)
     await asyncio.Event().wait()

@@ -34,7 +34,7 @@ def pull_basic_item_data(item_id: int) -> Optional[dict]:
     return response.json()
 
 
-def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict]:
+def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, None, dict]:
     """
     Retrieves basic item data from the database if it exists, otherwise pulls it from XIVAPI.
 
@@ -64,13 +64,12 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict]:
                 continue
             unhandled_ids.remove(result.id)
             output['items'][result.id] = {
-                'level': result.level,
                 'name': result.name,
                 'icon_path': result.icon_path
             }
         start_of_operation = datetime.datetime.now(datetime.timezone.utc)
         overall_scraping_data = session.query(OverallScrapingData).first()
-        if overall_scraping_data:
+        if overall_scraping_data and overall_scraping_data.average_item_data_pull_time_in_seconds:
             output['estimated_operation_time'] = (
                 overall_scraping_data.average_item_data_pull_time_in_seconds *
                 len(unhandled_ids)
@@ -97,7 +96,6 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict]:
                     new_entry.icon_path = icon_path
                 session.add(new_entry)
                 output['items'][unhandled_id] = {
-                    'level': new_entry.level,
                     'name': new_entry.name,
                     'icon_path': new_entry.icon_path
                 }
@@ -128,6 +126,8 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict]:
                     overall_scraping_data.total_item_data_pulls
                 )
             total_duration += operation_duration.total_seconds()
+            if not overall_scraping_data.total_item_data_pulls:
+                overall_scraping_data.total_item_data_pulls = 0
             overall_scraping_data.total_item_data_pulls += len(item_ids)
             overall_scraping_data.average_item_data_pull_time_in_seconds = (
                 total_duration /
