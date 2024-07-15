@@ -11,6 +11,7 @@ from sqlalchemy_utils import database_exists, create_database
 
 Base = declarative_base()
 
+
 class OverallScrapingData(Base):
     """
     Overall data about the scraping process.
@@ -20,6 +21,13 @@ class OverallScrapingData(Base):
     id = Column(Integer, primary_key=True)
     last_world_data_pull = Column(DateTime)
     last_tax_data_pull = Column(DateTime)
+    average_item_data_pull_time_in_seconds = Column(Float)
+    total_item_data_pulls = Column(Integer)
+    average_item_market_pull_time_in_seconds = Column(Float)
+    total_item_market_pulls = Column(Integer)
+    average_historical_item_market_pull_time_in_seconds = Column(Float)
+    total_historical_item_market_pulls = Column(Integer)
+
 
 class ItemData(Base):
     """
@@ -32,6 +40,8 @@ class ItemData(Base):
     name = Column(String)
     icon_path = Column(String)
     last_data_pull = Column(DateTime)
+    source_class = Column(String)
+    source_class_level = Column(Integer)
 
 
 class ItemMarketDataCurrent(Base):
