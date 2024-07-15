@@ -69,6 +69,7 @@ class BaseHandler(RequestHandler):
         self.set_header("Access-Control-Allow-Headers", "x-requested-with")
         self.set_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
 
+    # pylint: disable=unused-argument
     def options(self, *args):
         """
         Sets options for the request.

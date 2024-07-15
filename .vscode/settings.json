@@ -1,3 +1,12 @@
 {
-  "cSpell.words": ["craftable", "gatherable", "ioloop", "XIVAPI"]
+  "cSpell.words": [
+    "craftable",
+    "gatherable",
+    "ioloop",
+    "psycopg",
+    "sqlalchemy",
+    "UNIVERSALIS",
+    "XIVAPI",
+    "xivmarketstats"
+  ]
 }
