@@ -19,7 +19,7 @@ class OverallScrapingData(Base):
 
     id = Column(Integer, primary_key=True)
     last_world_data_pull = Column(DateTime)
-
+    last_tax_data_pull = Column(DateTime)
 
 class ItemData(Base):
     """
@@ -70,6 +70,17 @@ class World(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String)
     region = Column(String)
+
+class TaxRate(Base):
+    """
+    Tax rates for each city by world.
+    """
+    __tablename__ = 'tax_rate'
+
+    id = Column(Integer, primary_key=True)
+    world = Column(String)
+    city = Column(String)
+    tax_rate = Column(Integer)
 
 
 class CraftingType(Base):
