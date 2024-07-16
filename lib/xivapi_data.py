@@ -4,7 +4,6 @@ Functions for pulling data from XIVAPI.
 import datetime
 import math
 from typing import Generator, Optional
-from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from lib.constants import (
@@ -46,8 +45,8 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         dict: Basic item data for each ID, plus operation status.
     """
     with Session(engine) as session:
-        statement = select(ItemData).where(ItemData.id.in_(item_ids))
-        results = session.execute(statement)
+        print('Getting basic item data.')
+        results = session.query(ItemData).where(ItemData.id.in_(item_ids)).all()
         unhandled_ids = item_ids.copy()
         stale_ids = []
         output = {
@@ -59,7 +58,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         for result in results:
             now = datetime.datetime.now(datetime.timezone.utc)
             stale_date = now - datetime.timedelta(days=BASIC_ITEM_DATA_SCHEDULE_IN_DAYS)
-            if result.last_data_pull < stale_date:
+            if result.last_data_pull.astimezone(datetime.timezone.utc) < stale_date:
                 stale_ids.append(result.id)
                 continue
             unhandled_ids.remove(result.id)
@@ -75,21 +74,27 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
                 len(unhandled_ids)
             )
         for unhandled_id in unhandled_ids:
+            print(f'\tPulling item data from XIVAPI: {unhandled_id}.')
             now = datetime.datetime.now(datetime.timezone.utc)
             output['operation_time_so_far'] = now - start_of_operation
             yield output
             data = pull_basic_item_data(unhandled_id)
             if data:
+                print('\t\tData pulled successfully.')
                 icon_path = data['fields']['Icon']['path']
                 icon_path = icon_path.replace('ui/icon/', 'i/').replace('.tex', '')
                 if unhandled_id not in stale_ids:
+                    print('\t\tCreating new database entry.')
                     new_entry = ItemData(
                         id=unhandled_id,
                         name=data['fields']['Name'],
                         icon_path=icon_path,
-                        last_data_pull=now
+                        last_data_pull=now,
+                        source_classes=[],
+                        source_class_levels=[]
                     )
                 else:
+                    print('\t\tUpdating existing database entry.')
                     new_entry = session.query(ItemData).filter(ItemData.id == unhandled_id).first()
                     new_entry.last_data_pull = now
                     new_entry.name = data['fields']['Name']
@@ -136,4 +141,5 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         session.add(overall_scraping_data)
         session.commit()
         output['complete'] = True
+        print('Getting basic item data complete.')
         return output
