@@ -16,3 +16,8 @@
    3. interpolate during long requests using historical length of job based on number of items
    4. client should check job status once per second and display progress bar
 4.
+
+
+# notes from dev chat
+
+100 item max for current or historical data in comma separated list
