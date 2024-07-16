@@ -52,7 +52,7 @@ def scraper_main_thread(engine: Engine):
             ):
                 pull_data()
                 store_data(session, engine)
-                overall_data.crafting_and_gathering_data_last_pull = datetime.now(timezone.utc)
+                overall_data.crafting_and_gathering_data_last_pull = datetime.now().astimezone(timezone.utc)
                 session.add(overall_data)
                 session.commit()
             sleep(24 * 60 * 60)
@@ -124,8 +124,8 @@ def is_old(last_pull: datetime) -> bool:
     Returns:
         bool: True if the data is old, otherwise False.
     """
-    last_pull = last_pull.replace(tzinfo=timezone.utc)
-    now = datetime.now(timezone.utc)
+    last_pull = last_pull.astimezone(tz=timezone.utc)
+    now = datetime.now().astimezone(tz=None)
     return now - last_pull >= timedelta(days=CRAFTING_AND_GATHERING_DATA_SCHEDULE_IN_DAYS)
 
 

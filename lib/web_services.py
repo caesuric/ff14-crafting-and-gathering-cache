@@ -11,7 +11,7 @@ import tornado.httpserver
 from tornado.httputil import HTTPServerRequest
 from tornado.web import Application, RequestHandler
 
-from lib.universalis_data import get_worlds
+from lib.universalis_data import get_tax_rates, get_worlds
 from lib.xivapi_data import get_basic_item_data
 
 item_jobs = {}
@@ -43,6 +43,7 @@ async def start_web_server(engine: Engine):
         (r'^/rest/items/status/(.*)$', ItemsStatusHandler),
         (r'^/rest/items/result/(.*)$', ItemsResultHandler),
         (r'^/rest/worlds$', WorldsHandler, {'engine': engine}),
+        (r'^/rest/tax-rates/(.*)$', TaxRatesHandler, {'engine': engine}),
     ])
     http_server = tornado.httpserver.HTTPServer(
         application,
@@ -173,6 +174,33 @@ class WorldsHandler(BaseHandler):
             self.set_status(500, 'Database engine not passed to handler.')
             return
         self.write(json.dumps(get_worlds(self.engine)))
+
+
+class TaxRatesHandler(BaseHandler):
+    """
+    Request handler for world list.
+    """
+    def __init__(self, application: Application, request: HTTPServerRequest, **kwargs):
+        super().__init__(application, request, **kwargs)
+        self.engine: Optional[Engine] = None
+        if 'engine' in kwargs:
+            self.engine = kwargs['engine']
+
+    def initialize(self, **kwargs):
+        """
+        Initializes the handler.
+        """
+        self.engine = kwargs['engine']
+
+    def get(self, world: str):
+        """
+        Retrieves the list of tax rates for a world.
+        """
+        if self.engine is None:
+            self.set_status(500, 'Database engine not passed to handler.')
+            return
+        self.write(json.dumps(get_tax_rates(world, self.engine)))
+
 
 
 

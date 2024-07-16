@@ -55,7 +55,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
             'items': {}
         }
         for result in results:
-            now = datetime.datetime.now(datetime.timezone.utc)
+            now = datetime.datetime.now().astimezone(tz=None)
             stale_date = now - datetime.timedelta(days=BASIC_ITEM_DATA_SCHEDULE_IN_DAYS)
             if result.last_data_pull.astimezone(datetime.timezone.utc) < stale_date:
                 stale_ids.append(result.id)
@@ -65,7 +65,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
                 'name': result.name,
                 'icon_path': result.icon_path
             }
-        start_of_operation = datetime.datetime.now(datetime.timezone.utc)
+        start_of_operation = datetime.datetime.now().astimezone(tz=None)
         overall_scraping_data = session.query(OverallScrapingData).first()
         if overall_scraping_data and overall_scraping_data.average_item_data_pull_time_in_seconds:
             output['estimated_operation_time'] = (
@@ -75,7 +75,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         yield output
         for unhandled_id in unhandled_ids:
             print(f'\tPulling item data from XIVAPI: {unhandled_id}.')
-            now = datetime.datetime.now(datetime.timezone.utc)
+            now = datetime.datetime.now().astimezone(tz=None)
             output['operation_time_so_far'] = now - start_of_operation
             yield output
             data = pull_basic_item_data(unhandled_id)
@@ -104,7 +104,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
                     'name': new_entry.name,
                     'icon_path': new_entry.icon_path
                 }
-        end_of_operation = datetime.datetime.now(datetime.timezone.utc)
+        end_of_operation = datetime.datetime.now().astimezone(tz=None)
         operation_duration = end_of_operation - start_of_operation
         overall_scraping_data = session.query(OverallScrapingData).first()
         if not overall_scraping_data:
