@@ -75,12 +75,16 @@ def update_item_in_database(item: dict, item_type: str, session: Session, engine
         entry = session.query(ItemData).filter_by(id=item['id']).first()
         if entry is None:
             return
+    source_classes = entry.source_classes.copy()
+    source_class_levels = entry.source_class_levels.copy()
     if item_type not in entry.source_classes:
-        entry.source_classes.append(item_type)
-        entry.source_class_levels.append(item['level'])
+        source_classes.append(item_type)
+        source_class_levels.append(item['level'])
     else:
-        index = entry.source_classes.index(item_type)
-        entry.source_class_levels[index] = item['level']
+        index = source_classes.index(item_type)
+        source_class_levels[index] = item['level']
+    entry.source_classes = source_classes
+    entry.source_class_levels = source_class_levels
     session.add(entry)
     session.commit()
 
