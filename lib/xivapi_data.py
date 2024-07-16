@@ -45,7 +45,6 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         dict: Basic item data for each ID, plus operation status.
     """
     with Session(engine) as session:
-        print('Getting basic item data.')
         results = session.query(ItemData).where(ItemData.id.in_(item_ids)).all()
         unhandled_ids = item_ids.copy()
         stale_ids = []
@@ -73,6 +72,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
                 overall_scraping_data.average_item_data_pull_time_in_seconds *
                 len(unhandled_ids)
             )
+        yield output
         for unhandled_id in unhandled_ids:
             print(f'\tPulling item data from XIVAPI: {unhandled_id}.')
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -142,4 +142,5 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         session.commit()
         output['complete'] = True
         print('Getting basic item data complete.')
+        yield output
         return output

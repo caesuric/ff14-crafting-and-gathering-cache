@@ -124,6 +124,7 @@ def is_old(last_pull: datetime) -> bool:
     Returns:
         bool: True if the data is old, otherwise False.
     """
+    last_pull = last_pull.replace(tzinfo=timezone.utc)
     now = datetime.now(timezone.utc)
     return now - last_pull >= timedelta(days=CRAFTING_AND_GATHERING_DATA_SCHEDULE_IN_DAYS)
 

@@ -103,7 +103,11 @@ class ItemsHandler(BaseHandler):
         if self.engine is None:
             self.set_status(500, 'Database engine not passed to handler.')
             return
-        item_ids = raw_item_ids.split(',')
+        if ',' not in raw_item_ids:
+            item_ids = [int(raw_item_ids)]
+        else:
+            item_ids = raw_item_ids.split(',')
+        item_ids = [int(item_id) for item_id in item_ids]
         self.write(self.job_id)
         for state in get_basic_item_data(item_ids, self.engine):
             self.status = state
@@ -119,6 +123,7 @@ class ItemsStatusHandler(BaseHandler):
         """
         if job_id not in item_jobs:
             self.set_status(404, 'Job ID not found.')
+            self.write(json.dumps({}))
             return
         status = item_jobs[job_id].copy()
         status['items'] = {}
