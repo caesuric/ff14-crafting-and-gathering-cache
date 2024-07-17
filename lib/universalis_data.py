@@ -87,7 +87,7 @@ def get_current_item_data(
             sets_of_a_hundred.append(sets_of_a_hundred[-1][100:])
         for batch in sets_of_a_hundred:
             now = datetime.now().astimezone(tz=None)
-            output['operation_time_so_far'] = now - start_of_operation
+            output['operation_time_so_far'] = (now - start_of_operation).total_seconds()
             yield output
             data = pull_current_item_data(world, batch)
             if data:
@@ -112,7 +112,7 @@ def get_current_item_data(
             output['items'][unhandled_id] = {
                 'current_min_price_nq': new_entry.current_min_price_nq
             }
-    end_of_operation = datetime.Now().astimezone(tz=None)
+    end_of_operation = datetime.now().astimezone(tz=None)
     operation_duration = end_of_operation - start_of_operation
     overall_scraping_data = session.query(OverallScrapingData).first()
     if not overall_scraping_data:

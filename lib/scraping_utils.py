@@ -26,10 +26,12 @@ def make_get_request(url: str) -> Optional[Response]:
     adapter = HTTPAdapter(max_retries = retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
-    try:
-        response = session.get(url)
-        if response.status_code != 200:
-            return None
-        return response
-    except RequestException:
-        return None
+    for _ in range(10):
+        try:
+            response = session.get(url)
+            if response.status_code != 200:
+                continue
+            return response
+        except RequestException:
+            continue
+    return None

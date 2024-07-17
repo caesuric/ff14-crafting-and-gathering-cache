@@ -75,7 +75,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         yield output
         for unhandled_id in unhandled_ids:
             now = datetime.datetime.now().astimezone(tz=None)
-            output['operation_time_so_far'] = now - start_of_operation
+            output['operation_time_so_far'] = (now - start_of_operation).total_seconds()
             yield output
             data = pull_basic_item_data(unhandled_id)
             if data:
