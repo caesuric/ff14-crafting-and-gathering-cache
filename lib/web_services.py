@@ -115,7 +115,10 @@ class ItemsHandler(BaseHandler):
             item_ids = raw_item_ids.split(',')
         item_ids = [int(item_id) for item_id in item_ids]
         self.write(self.job_id)
-        process = Thread(target=self.get_async_portion, args=(item_ids))
+        process = Thread(
+            target=self.get_async_portion,
+            args=(item_ids)
+        )
         process.start()
 
     def get_async_portion(self, item_ids: list[int]):

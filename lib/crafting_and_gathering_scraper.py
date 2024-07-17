@@ -52,7 +52,8 @@ def scraper_main_thread(engine: Engine):
             ):
                 pull_data()
                 store_data(session, engine)
-                overall_data.crafting_and_gathering_data_last_pull = datetime.now().astimezone(timezone.utc)
+                overall_data.crafting_and_gathering_data_last_pull = \
+                    datetime.now().astimezone(timezone.utc)
                 session.add(overall_data)
                 session.commit()
             sleep(24 * 60 * 60)
