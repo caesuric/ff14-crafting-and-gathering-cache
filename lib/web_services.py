@@ -11,10 +11,11 @@ import tornado.httpserver
 from tornado.httputil import HTTPServerRequest
 from tornado.web import Application, RequestHandler
 
-from lib.universalis_data import get_tax_rates, get_worlds
+from lib.universalis_data import get_current_item_data, get_tax_rates, get_worlds
 from lib.xivapi_data import get_basic_item_data
 
 item_jobs = {}
+current_market_jobs = {}
 
 async def start_web_server(engine: Engine):
     """
@@ -44,6 +45,9 @@ async def start_web_server(engine: Engine):
         (r'^/rest/items/result/(.*)$', ItemsResultHandler),
         (r'^/rest/worlds$', WorldsHandler, {'engine': engine}),
         (r'^/rest/tax-rates/(.*)$', TaxRatesHandler, {'engine': engine}),
+        (r'^/rest/market-current/start/(.*)/(.*)$', MarketCurrentHandler, {'engine': engine}),
+        (r'^/rest/market-current/status/(.*)$', MarketCurrentStatusHandler),
+        (r'^/rest/market-current/result/(.*)$', MarketCurrentResultHandler),
     ])
     http_server = tornado.httpserver.HTTPServer(
         application,
@@ -148,6 +152,79 @@ class ItemsResultHandler(BaseHandler):
         self.write(json.dumps(status['items']))
         if status['complete']:
             del item_jobs[job_id]
+
+
+class MarketCurrentHandler(BaseHandler):
+    """
+    Request handler for current market data.
+    """
+
+    def __init__(self, application: Application, request: HTTPServerRequest, **kwargs):
+        super().__init__(application, request, **kwargs)
+        self.engine: Optional[Engine] = None
+        self.status: Optional[dict] = None
+        self.job_id: str = str(uuid4())
+        if 'engine' in kwargs:
+            self.engine = kwargs['engine']
+
+    def initialize(self, **kwargs):
+        """
+        Initializes the handler.
+        """
+        self.engine = kwargs['engine']
+
+    def get(self, world: Optional[str], raw_item_ids: Optional[str]):
+        """
+        Starts a job to retrieve a list of current market data, and returns a job ID.
+        """
+        if self.engine is None:
+            self.set_status(500, 'Database engine not passed to handler.')
+            return
+        if ',' not in raw_item_ids:
+            item_ids = [int(raw_item_ids)]
+        else:
+            item_ids = raw_item_ids.split(',')
+        item_ids = [int(item_id) for item_id in item_ids]
+        self.write(self.job_id)
+        for state in get_current_item_data(world, item_ids, self.engine):
+            self.status = state
+            current_market_jobs[self.job_id] = state
+
+
+class MarketCurrentStatusHandler(BaseHandler):
+    """
+    Request handler for current market job status.
+    """
+
+    def get(self, job_id: str):
+        """
+        Retrieves the status of an item job.
+        """
+        if job_id not in current_market_jobs:
+            self.set_status(404, 'Job ID not found.')
+            self.write(json.dumps({}))
+            return
+        status = current_market_jobs[job_id].copy()
+        status['items'] = {}
+        self.write(json.dumps(status))
+
+
+class MarketCurrentResultHandler(BaseHandler):
+    """
+    Request handler for current market job results.
+    """
+
+    def get(self, job_id: str):
+        """
+        Retrieves the results of an item job.
+        """
+        if job_id not in current_market_jobs:
+            self.set_status(404, 'Job ID not found.')
+            return
+        status = current_market_jobs[job_id].copy()
+        self.write(json.dumps(status['items']))
+        if status['complete']:
+            del current_market_jobs[job_id]
 
 
 class WorldsHandler(BaseHandler):

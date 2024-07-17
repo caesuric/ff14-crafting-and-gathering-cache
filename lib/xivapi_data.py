@@ -74,17 +74,14 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
             )
         yield output
         for unhandled_id in unhandled_ids:
-            print(f'\tPulling item data from XIVAPI: {unhandled_id}.')
             now = datetime.datetime.now().astimezone(tz=None)
             output['operation_time_so_far'] = now - start_of_operation
             yield output
             data = pull_basic_item_data(unhandled_id)
             if data:
-                print('\t\tData pulled successfully.')
                 icon_path = data['fields']['Icon']['path']
                 icon_path = icon_path.replace('ui/icon/', 'i/').replace('.tex', '')
                 if unhandled_id not in stale_ids:
-                    print('\t\tCreating new database entry.')
                     new_entry = ItemData(
                         id=unhandled_id,
                         name=data['fields']['Name'],
@@ -94,7 +91,6 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
                         source_class_levels=[]
                     )
                 else:
-                    print('\t\tUpdating existing database entry.')
                     new_entry = session.query(ItemData).filter(ItemData.id == unhandled_id).first()
                     new_entry.last_data_pull = now
                     new_entry.name = data['fields']['Name']
@@ -141,6 +137,5 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         session.add(overall_scraping_data)
         session.commit()
         output['complete'] = True
-        print('Getting basic item data complete.')
         yield output
         return output

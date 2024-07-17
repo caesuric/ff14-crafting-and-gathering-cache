@@ -2,9 +2,12 @@
 Functions for pulling data from Universalis.
 """
 from datetime import datetime, timedelta, timezone
+import math
+from typing import Generator
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from lib.constants import (
+    CURRENT_ITEM_MARKET_DATA_SCHEDULE_IN_HOURS,
     TAX_RATE_SCHEDULE_IN_HOURS,
     UNIVERSALIS_API_BASE_URL,
     WORLD_DATA_SCHEDULE_IN_DAYS,
@@ -12,8 +15,9 @@ from lib.constants import (
     TAX_RATES_PATH,
     HISTORICAL_DATA_PATH
 )
-from lib.database_engine import OverallScrapingData, TaxRate, World
+from lib.database_engine import ItemMarketDataCurrent, OverallScrapingData, TaxRate, World
 from lib.scraping_utils import make_get_request
+
 
 def pull_current_item_data(world: str, item_ids: list[int]) -> dict:
     """
@@ -31,6 +35,114 @@ def pull_current_item_data(world: str, item_ids: list[int]) -> dict:
     if response is None:
         return {}
     return response.json()
+
+
+def get_current_item_data(
+        world: str,
+        item_ids: list[int],
+        engine: Engine
+    ) -> Generator[dict, None, dict]:
+    """
+    Retrieves current item data from the database if present, otherwise pulls it from Universalis.
+
+    Args:
+        world (str): World for which to pull data.
+        item_ids (list[int]): ID of the item to pull.
+        engine (Engine): SQLAlchemy engine.
+    """
+    unhandled_ids = item_ids.copy()
+    stale_ids = []
+    with Session(engine) as session:
+        results = session.query(ItemMarketDataCurrent). \
+            where(ItemMarketDataCurrent.id.in_(item_ids)).all()
+        output = {
+            'complete': False,
+            'estimated_operation_time': math.inf,
+            'operation_time_so_far': 0,
+            'items': {}
+        }
+        for result in results:
+            now = datetime.now().astimezone(tz=None)
+            stale_date = now - \
+                timedelta(hours=CURRENT_ITEM_MARKET_DATA_SCHEDULE_IN_HOURS)
+            if result.last_data_pull.astimezone(timezone.utc) < stale_date:
+                stale_ids.append(result.id)
+                continue
+            unhandled_ids.remove(result.id)
+            output['items'][result.id] = {
+                'current_min_price_nq': result.current_min_price_nq
+            }
+        start_of_operation = datetime.now().astimezone(tz=None)
+        overall_scraping_data = session.query(OverallScrapingData).first()
+        if overall_scraping_data and \
+                overall_scraping_data.average_item_market_pull_time_in_seconds and \
+                overall_scraping_data.total_item_market_pulls:
+            output['estimated_operation_time'] = \
+                overall_scraping_data.average_item_market_pull_time_in_seconds * \
+                len(unhandled_ids)
+        yield output
+        sets_of_a_hundred = [[unhandled_ids.copy()]]
+        total_data = []
+        while len(sets_of_a_hundred[-1]) > 100:
+            sets_of_a_hundred.append(sets_of_a_hundred[-1][100:])
+        for batch in sets_of_a_hundred:
+            now = datetime.now().astimezone(tz=None)
+            output['operation_time_so_far'] = now - start_of_operation
+            yield output
+            data = pull_current_item_data(world, batch)
+            if data:
+                total_data.extend(data)
+        for unhandled_id in unhandled_ids:
+            now = datetime.now().astimezone(tz=None)
+            if unhandled_id not in stale_ids:
+                new_entry = ItemMarketDataCurrent(
+                    id=unhandled_id,
+                    current_min_price_nq=total_data[unhandled_id]['minPriceNQ'],
+                    last_data_pull=now
+                )
+            else:
+                new_entry = session.query(ItemMarketDataCurrent).filter(
+                    ItemMarketDataCurrent.id == unhandled_id).first()
+                new_entry.last_data_pull = now
+                new_entry.current_min_price_nq = total_data[unhandled_id]['minPriceNQ']
+            session.add(new_entry)
+            output['items'][unhandled_id] = {
+                'current_min_price_nq': new_entry.current_min_price_nq
+            }
+    end_of_operation = datetime.Now().astimezone(tz=None)
+    operation_duration = end_of_operation - start_of_operation
+    overall_scraping_data = session.query(OverallScrapingData).first()
+    if not overall_scraping_data:
+        overall_scraping_data = OverallScrapingData(
+            last_world_data_pull=None,
+            last_tax_data_pull=None,
+            average_item_data_pull_time_in_seconds=None,
+            total_item_data_pulls=None,
+            average_item_market_pull_time_in_seconds=operation_duration.total_seconds(),
+            total_item_market_pulls=len(item_ids),
+            average_historical_item_market_pull_time_in_seconds=None,
+            total_historical_item_market_pulls=None,
+            crafting_and_gathering_data_last_pull=None
+        )
+    else:
+        if not overall_scraping_data.average_item_market_pull_time_in_seconds \
+            or not overall_scraping_data.total_item_market_pulls:
+            total_duration = 0
+        else:
+            total_duration = overall_scraping_data.average_item_market_pull_time_in_seconds * \
+                overall_scraping_data.total_item_market_pulls
+        total_duration += operation_duration.total_seconds()
+        if not overall_scraping_data.total_item_market_pulls:
+            overall_scraping_data.total_item_market_pulls = 0
+        overall_scraping_data.total_item_market_pulls += len(item_ids)
+        overall_scraping_data.average_item_market_pull_time_in_seconds = total_duration / \
+            overall_scraping_data.total_item_market_pulls
+    session.add(overall_scraping_data)
+    session.commit()
+    output['complete'] = True
+    yield output
+    return output
+
 
 def pull_historical_item_data(world: str, item_ids: list[int]) -> dict:
     """
@@ -70,7 +182,7 @@ def get_worlds(engine: Engine) -> list[str]:
 
     Args:
         engine: SQLAlchemy engine.
-    
+
     Returns:
         list[str]: List of worlds.
     """
@@ -78,7 +190,8 @@ def get_worlds(engine: Engine) -> list[str]:
         if is_world_data_old(session):
             worlds = pull_worlds()
             for world in worlds:
-                existing_world = session.query(World).filter(World.name == world['name']).first()
+                existing_world = session.query(World).filter(
+                    World.name == world['name']).first()
                 if existing_world is None:
                     new_world = World(name=world['name'], id=world['id'])
                     session.add(new_world)
@@ -104,7 +217,7 @@ def is_world_data_old(session) -> bool:
 
     Args:
         session: SQLAlchemy session.
-    
+
     Returns:
         bool: True if world data is old enough to require refreshing, otherwise False.
     """
@@ -138,6 +251,7 @@ def pull_tax_rates(world: str) -> dict:
         return {}
     return response.json()
 
+
 def get_tax_rates(world: str, engine: Engine) -> dict:
     """
     Retrieves tax rates from the database if present, otherwise pulls them from Universalis.
@@ -145,7 +259,7 @@ def get_tax_rates(world: str, engine: Engine) -> dict:
     Args:
         world (str): World for which to pull data.
         engine (Engine): SQLAlchemy engine.
-    
+
     Returns:
         dict: Tax rates by city.
     """
