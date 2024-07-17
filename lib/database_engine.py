@@ -51,6 +51,8 @@ class ItemMarketDataCurrent(Base):
     __tablename__ = 'item_market_data_current'
 
     id = Column(Integer, primary_key=True)
+    ffxiv_id = Column(Integer)
+    world = Column(String)
     current_min_price_nq = Column(Integer)
     last_data_pull = Column(DateTime)
 
@@ -62,6 +64,8 @@ class ItemMarketDataHistorical(Base):
     __tablename__ = 'item_market_data_historical'
 
     id = Column(Integer, primary_key=True)
+    ffxiv_id = Column(Integer)
+    world = Column(String)
     nq_daily_sale_velocity = Column(Integer)
     average_price_per_unit = Column(Integer)
     num_items_sold = Column(Integer)
