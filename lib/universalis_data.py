@@ -71,10 +71,10 @@ def get_current_item_data(
             stale_date = now - \
                 timedelta(hours=CURRENT_ITEM_MARKET_DATA_SCHEDULE_IN_HOURS)
             if result.last_data_pull.astimezone(timezone.utc) < stale_date:
-                stale_ids.append(result.id)
+                stale_ids.append(result.ffxiv_id)
                 continue
-            unhandled_ids.remove(result.id)
-            output['items'][result.id] = {
+            unhandled_ids.remove(result.ffxiv_id)
+            output['items'][result.ffxiv_id] = {
                 'current_min_price_nq': result.current_min_price_nq
             }
         start_of_operation = datetime.now().astimezone(tz=None)
@@ -96,8 +96,11 @@ def get_current_item_data(
             yield output
             data = pull_current_item_data(world, batch)
             if data:
-                for key, value in data['items']:
-                    total_data[key] = value
+                if len(unhandled_ids) == 1:
+                    total_data[unhandled_ids[0]] = data
+                else:
+                    for key, value in data['items']:
+                        total_data[key] = value
         for unhandled_id in unhandled_ids:
             if unhandled_id not in total_data:
                 continue
@@ -121,39 +124,39 @@ def get_current_item_data(
             output['items'][unhandled_id] = {
                 'current_min_price_nq': new_entry.current_min_price_nq
             }
-    end_of_operation = datetime.now().astimezone(tz=None)
-    operation_duration = end_of_operation - start_of_operation
-    overall_scraping_data = session.query(OverallScrapingData).first()
-    if not overall_scraping_data:
-        overall_scraping_data = OverallScrapingData(
-            last_world_data_pull=None,
-            last_tax_data_pull=None,
-            average_item_data_pull_time_in_seconds=None,
-            total_item_data_pulls=None,
-            average_item_market_pull_time_in_seconds=operation_duration.total_seconds(),
-            total_item_market_pulls=len(item_ids),
-            average_historical_item_market_pull_time_in_seconds=None,
-            total_historical_item_market_pulls=None,
-            crafting_and_gathering_data_last_pull=None
-        )
-    else:
-        if not overall_scraping_data.average_item_market_pull_time_in_seconds \
-            or not overall_scraping_data.total_item_market_pulls:
-            total_duration = 0
+        end_of_operation = datetime.now().astimezone(tz=None)
+        operation_duration = end_of_operation - start_of_operation
+        overall_scraping_data = session.query(OverallScrapingData).first()
+        if not overall_scraping_data:
+            overall_scraping_data = OverallScrapingData(
+                last_world_data_pull=None,
+                last_tax_data_pull=None,
+                average_item_data_pull_time_in_seconds=None,
+                total_item_data_pulls=None,
+                average_item_market_pull_time_in_seconds=operation_duration.total_seconds(),
+                total_item_market_pulls=len(item_ids),
+                average_historical_item_market_pull_time_in_seconds=None,
+                total_historical_item_market_pulls=None,
+                crafting_and_gathering_data_last_pull=None
+            )
         else:
-            total_duration = overall_scraping_data.average_item_market_pull_time_in_seconds * \
+            if not overall_scraping_data.average_item_market_pull_time_in_seconds \
+                or not overall_scraping_data.total_item_market_pulls:
+                total_duration = 0
+            else:
+                total_duration = overall_scraping_data.average_item_market_pull_time_in_seconds * \
+                    overall_scraping_data.total_item_market_pulls
+            total_duration += operation_duration.total_seconds()
+            if not overall_scraping_data.total_item_market_pulls:
+                overall_scraping_data.total_item_market_pulls = 0
+            overall_scraping_data.total_item_market_pulls += len(item_ids)
+            overall_scraping_data.average_item_market_pull_time_in_seconds = total_duration / \
                 overall_scraping_data.total_item_market_pulls
-        total_duration += operation_duration.total_seconds()
-        if not overall_scraping_data.total_item_market_pulls:
-            overall_scraping_data.total_item_market_pulls = 0
-        overall_scraping_data.total_item_market_pulls += len(item_ids)
-        overall_scraping_data.average_item_market_pull_time_in_seconds = total_duration / \
-            overall_scraping_data.total_item_market_pulls
-    session.add(overall_scraping_data)
-    session.commit()
-    output['complete'] = True
-    yield output
-    return output
+        session.add(overall_scraping_data)
+        session.commit()
+        output['complete'] = True
+        yield output
+        return output
 
 
 def pull_historical_item_data(world: str, item_ids: list[int]) -> dict:
@@ -167,7 +170,7 @@ def pull_historical_item_data(world: str, item_ids: list[int]) -> dict:
     Returns:
         dict: Historical item market data.
     """
-    url = f'{UNIVERSALIS_API_BASE_URL}/{HISTORICAL_DATA_PATH}/{world}/{",".join([str(item) for item in item_ids])}'
+    url = f'{UNIVERSALIS_API_BASE_URL}/{HISTORICAL_DATA_PATH}/{world}/{",".join([str(item) for item in item_ids])}?entriesWithin=2592000'
     response = make_get_request(url)
     if response is None:
         return {}
@@ -209,10 +212,10 @@ def get_historical_item_data(
             stale_date = now - \
                 timedelta(days=HISTORICAL_ITEM_MARKET_DATA_SCHEDULE_IN_DAYS)
             if result.last_data_pull.astimezone(timezone.utc) < stale_date:
-                stale_ids.append(result.id)
+                stale_ids.append(result.ffxiv_id)
                 continue
-            unhandled_ids.remove(result.id)
-            output['items'][result.id] = {
+            unhandled_ids.remove(result.ffxiv_id)
+            output['items'][result.ffxiv_id] = {
                 'nq_daily_sale_velocity': result.nq_daily_sale_velocity,
                 'average_price_per_unit': result.average_price_per_unit,
                 'num_items_sold': result.num_items_sold,
@@ -240,23 +243,29 @@ def get_historical_item_data(
             yield output
             data = pull_historical_item_data(world, batch)
             if data:
-                for key, value in data['items']:
-                    total_data[key] = value
+                if len(unhandled_ids) == 1:
+                    total_data[unhandled_ids[0]] = data
+                else:
+                    for key, value in data['items']:
+                        total_data[key] = value
         for unhandled_id in unhandled_ids:
             if unhandled_id not in total_data:
                 continue
             now = datetime.now().astimezone(tz=None)
             if unhandled_id not in stale_ids:
                 num_items_sold = 0
+                average_price = 0
                 stack_sizes = []
                 prices = []
                 for entry in total_data[unhandled_id]['entries']:
                     num_items_sold += entry['quantity']
+                    average_price += entry['pricePerUnit'] * entry['quantity']
                     stack_sizes.append(entry['quantity'])
                     prices.append(entry['pricePerUnit'])
+                average_price /= num_items_sold
                 possible_money_per_day = int(
                     num_items_sold *
-                    total_data[unhandled_id]['averagePrice']
+                    average_price
                 )
                 median_stack_size = median(stack_sizes)
                 median_price = median(prices)
@@ -264,7 +273,7 @@ def get_historical_item_data(
                     ffxiv_id=unhandled_id,
                     world=world,
                     nq_daily_sale_velocity=int(total_data[unhandled_id]['nqSaleVelocity'] / 7.0),
-                    average_price_per_unit=total_data[unhandled_id]['averagePrice'],
+                    average_price_per_unit=int(average_price),
                     num_items_sold=num_items_sold,
                     possible_money_per_day = possible_money_per_day,
                     median_stack_size = median_stack_size,
@@ -286,7 +295,7 @@ def get_historical_item_data(
                     prices.append(entry['pricePerUnit'])
                 possible_money_per_day = int(
                     num_items_sold *
-                    total_data[unhandled_id]['averagePrice']
+                    average_price
                 )
                 median_stack_size = median(stack_sizes)
                 median_price = median(prices)
@@ -294,7 +303,7 @@ def get_historical_item_data(
                 new_entry.nq_daily_sale_velocity = int(
                     total_data[unhandled_id]['nqSaleVelocity'] / 7.0
                 )
-                new_entry.average_price_per_unit = total_data[unhandled_id]['averagePrice']
+                new_entry.average_price_per_unit = average_price
                 new_entry.num_items_sold = num_items_sold
                 new_entry.possible_money_per_day = possible_money_per_day
                 new_entry.median_stack_size = median_stack_size
@@ -308,39 +317,39 @@ def get_historical_item_data(
                 'median_stack_size': new_entry.median_stack_size,
                 'median_price': new_entry.median_price
             }
-    end_of_operation = datetime.now().astimezone(tz=None)
-    operation_duration = end_of_operation - start_of_operation
-    overall_scraping_data = session.query(OverallScrapingData).first()
-    if not overall_scraping_data:
-        overall_scraping_data = OverallScrapingData(
-            last_world_data_pull=None,
-            last_tax_data_pull=None,
-            average_item_data_pull_time_in_seconds=None,
-            total_item_data_pulls=None,
-            average_item_market_pull_time_in_seconds=None,
-            total_item_market_pulls=None,
-            average_historical_item_market_pull_time_in_seconds=operation_duration.total_seconds(),
-            total_historical_item_market_pulls=len(item_ids),
-            crafting_and_gathering_data_last_pull=None
-        )
-    else:
-        if not overall_scraping_data.average_historical_item_market_pull_time_in_seconds \
-                or not overall_scraping_data.total_historical_item_market_pulls:
-            total_duration = 0
+        end_of_operation = datetime.now().astimezone(tz=None)
+        operation_duration = end_of_operation - start_of_operation
+        overall_scraping_data = session.query(OverallScrapingData).first()
+        if not overall_scraping_data:
+            overall_scraping_data = OverallScrapingData(
+                last_world_data_pull=None,
+                last_tax_data_pull=None,
+                average_item_data_pull_time_in_seconds=None,
+                total_item_data_pulls=None,
+                average_item_market_pull_time_in_seconds=None,
+                total_item_market_pulls=None,
+                average_historical_item_market_pull_time_in_seconds=operation_duration.total_seconds(),
+                total_historical_item_market_pulls=len(item_ids),
+                crafting_and_gathering_data_last_pull=None
+            )
         else:
-            total_duration = overall_scraping_data.average_historical_item_market_pull_time_in_seconds * \
+            if not overall_scraping_data.average_historical_item_market_pull_time_in_seconds \
+                    or not overall_scraping_data.total_historical_item_market_pulls:
+                total_duration = 0
+            else:
+                total_duration = overall_scraping_data.average_historical_item_market_pull_time_in_seconds * \
+                    overall_scraping_data.total_historical_item_market_pulls
+            total_duration += operation_duration.total_seconds()
+            if not overall_scraping_data.total_historical_item_market_pulls:
+                overall_scraping_data.total_historical_item_market_pulls = 0
+            overall_scraping_data.total_historical_item_market_pulls += len(item_ids)
+            overall_scraping_data.average_historical_item_market_pull_time_in_seconds = total_duration / \
                 overall_scraping_data.total_historical_item_market_pulls
-        total_duration += operation_duration.total_seconds()
-        if not overall_scraping_data.total_historical_item_market_pulls:
-            overall_scraping_data.total_historical_item_market_pulls = 0
-        overall_scraping_data.total_historical_item_market_pulls += len(item_ids)
-        overall_scraping_data.average_historical_item_market_pull_time_in_seconds = total_duration / \
-            overall_scraping_data.total_historical_item_market_pulls
-    session.add(overall_scraping_data)
-    session.commit()
-    output['complete'] = True
-    yield output
-    return output
+        session.add(overall_scraping_data)
+        session.commit()
+        output['complete'] = True
+        yield output
+        return output
 
 
 def pull_worlds() -> list[str]:

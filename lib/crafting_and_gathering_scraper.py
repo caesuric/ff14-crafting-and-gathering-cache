@@ -7,7 +7,7 @@ from time import sleep
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from lib.constants import CRAFTING_AND_GATHERING_DATA_SCHEDULE_IN_DAYS
-from lib.database_engine import ItemData, OverallScrapingData
+from lib.database_engine import CraftingType, ItemData, OverallScrapingData
 from lib.scraping_utils import make_get_request
 from lib.xivapi_data import get_basic_item_data
 
@@ -88,6 +88,20 @@ def update_item_in_database(item: dict, item_type: str, session: Session, engine
     session.add(entry)
     session.commit()
 
+def update_crafting_type(crafting_type: str, session: Session):
+    """
+    Updates a crafting type in the database.
+
+    Args:
+        crafting_type (str): Crafting type.
+        session (Session): SQLAlchemy session.
+    """
+    entry = session.query(CraftingType).filter_by(name=crafting_type).first()
+    if entry is None:
+        entry = CraftingType(name=crafting_type)
+        session.add(entry)
+        session.commit()
+
 
 def store_data(session: Session, engine: Engine):
     """
@@ -109,6 +123,7 @@ def store_data(session: Session, engine: Engine):
         update_item_in_database(item, 'Fishing', session, engine)
     print('\tCrafting items...')
     for craft_type, subtype_items in crafting_items.items():
+        update_crafting_type(craft_type, session)
         for item in subtype_items:
             update_item_in_database(item, craft_type, session, engine)
     print('\tDONE.')

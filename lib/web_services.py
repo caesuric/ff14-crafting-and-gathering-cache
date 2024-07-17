@@ -8,11 +8,18 @@ from threading import Thread
 from typing import Optional
 from uuid import uuid4
 from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
 import tornado.httpserver
 from tornado.httputil import HTTPServerRequest
 from tornado.web import Application, RequestHandler
 
-from lib.universalis_data import get_current_item_data, get_historical_item_data, get_tax_rates, get_worlds
+from lib.database_engine import CraftingType, ItemData
+from lib.universalis_data import (
+    get_current_item_data,
+    get_historical_item_data,
+    get_tax_rates,
+    get_worlds
+)
 from lib.xivapi_data import get_basic_item_data
 
 item_jobs = {}
@@ -26,21 +33,6 @@ async def start_web_server(engine: Engine):
     Args:
         engine (Engine): SQLAlchemy database engine.
     """
-    # load_json_file('botany', botany_items)
-    # load_json_file('mining', mining_items)
-    # load_json_file('fishing', fishing_items)
-    # load_crafting_items('crafting')
-    # application = Application([
-    #     (r'^/rest/botany-items/(.+)-(.+)$', BotanyItemsHandler),
-    #     (r'^/rest/mining-items/(.+)-(.+)$', MiningItemsHandler),
-    #     (r'^/rest/fishing-items/(.+)-(.+)$', FishingItemsHandler),
-    #     (r'^/rest/crafting-items/(.*)/(.+)-(.+)$', CraftingItemsHandler),
-    #     (r'^/rest/crafting-types/$', CraftingTypesHandler),
-    #     (r'^/rest/botany-items-count/(.+)-(.+)$', BotanyItemsCountHandler),
-    #     (r'^/rest/mining-items-count/(.+)-(.+)$', MiningItemsCountHandler),
-    #     (r'^/rest/fishing-items-count/(.+)-(.+)$', FishingItemsCountHandler),
-    #     (r'^/rest/crafting-items-count/(.*)/(.+)-(.+)$', CraftingItemsCountHandler),
-    # ])
     application = Application([
         (r'^/rest/items/start/(.*)$', ItemsHandler, {'engine': engine}),
         (r'^/rest/items/status/(.*)$', ItemsStatusHandler),
@@ -53,6 +45,8 @@ async def start_web_server(engine: Engine):
         (r'^/rest/market-historical/start/(.*)/(.*)$', MarketHistoricalHandler, {'engine': engine}),
         (r'^/rest/market-historical/status/(.*)$', MarketHistoricalStatusHandler),
         (r'^/rest/market-historical/result/(.*)$', MarketHistoricalResultHandler),
+        (r'^/rest/items-by-job/(.*)/(.+)-(.+)$', ItemsByJobHandler, {'engine': engine}),
+        (r'^/rest/crafting-types$', CraftingTypesHandler, {'engine': engine}),
     ])
     http_server = tornado.httpserver.HTTPServer(
         application,
@@ -390,114 +384,75 @@ class TaxRatesHandler(BaseHandler):
         self.write(json.dumps(get_tax_rates(world, self.engine)))
 
 
+class ItemsByJobHandler(BaseHandler):
+    """
+    Request handler for items by job.
+    """
+    def __init__(self, application: Application, request: HTTPServerRequest, **kwargs):
+        super().__init__(application, request, **kwargs)
+        self.engine: Optional[Engine] = None
+        if 'engine' in kwargs:
+            self.engine = kwargs['engine']
+
+    def initialize(self, **kwargs):
+        """
+        Initializes the handler.
+        """
+        self.engine = kwargs['engine']
+
+    def get(self, job: Optional[str], min_level: Optional[str], max_level: Optional[str]):
+        """
+        Retrieves the list of items for a job within a level range.
+        """
+        if self.engine is None:
+            self.set_status(500, 'Database engine not passed to handler.')
+            return
+        if job is None:
+            self.set_status(400, 'Job not specified.')
+            return
+        if min_level is None or max_level is None:
+            self.set_status(400, 'Level range not specified.')
+            return
+        with Session(self.engine) as session:
+            db_entries = session.query(ItemData).where(ItemData.source_classes.any(job)).all()
+            filtered_entries = []
+            for entry in db_entries:
+                level = entry.source_class_levels[entry.source_classes.index(job)]
+                if int(min_level) <= level <= int(max_level):
+                    filtered_entries.append(entry)
+            output = [
+                {'id': x.id, 'name': x.name, 'icon_path': x.icon_path} for x in filtered_entries
+            ]
+            self.write(json.dumps(output))
 
 
+class CraftingTypesHandler(BaseHandler):
+    """
+    Request handler for crafting types.
+    """
+    def __init__(self, application: Application, request: HTTPServerRequest, **kwargs):
+        super().__init__(application, request, **kwargs)
+        self.engine: Optional[Engine] = None
+        if 'engine' in kwargs:
+            self.engine = kwargs['engine']
 
+    def initialize(self, **kwargs):
+        """
+        Initializes the handler.
+        """
+        self.engine = kwargs['engine']
 
-# class BotanyItemsHandler(BaseHandler):
-#     """
-#     Request handler for botany items.
-#     """
-#     def get(self, min_level, max_level):
-#         """
-#         Retrieves botany items within a specified level range.
-#         """
-#         self.write(json.dumps(grab_items_for_level_range(botany_items, min_level, max_level)))
-
-# class MiningItemsHandler(BaseHandler):
-#     """
-#     Request handler for mining items.
-#     """
-#     def get(self, min_level, max_level):
-#         """
-#         Retrieves mining items within a specified level range.
-#         """
-#         self.write(json.dumps(grab_items_for_level_range(mining_items, min_level, max_level)))
-
-# class FishingItemsHandler(BaseHandler):
-#     """
-#     Request handler for fishing items.
-#     """
-#     def get(self, min_level, max_level):
-#         """
-#         Retrieves fishing items within a specified level range
-#         """
-#         self.write(json.dumps(grab_items_for_level_range(fishing_items, min_level, max_level)))
-
-# class CraftingItemsHandler(BaseHandler):
-#     """
-#     Request handler for crafting items
-#     """
-#     def get(self, crafting_type, min_level, max_level):
-#         """
-#         Retrieves crafting items within a specified level range.
-#         """
-#         self.write(
-#             json.dumps(
-#                 grab_items_for_level_range(
-#                     crafting_items[crafting_type],
-#                     min_level,
-#                     max_level
-#                 )
-#             )
-#         )
-
-# class CraftingTypesHandler(BaseHandler):
-#     """
-#     Request handler for crafting types.
-#     """
-#     def get(self):
-#         """
-#         Retrieves crafting types.
-#         """
-#         self.write(json.dumps(list(crafting_items.keys())))
-
-# class BotanyItemsCountHandler(BaseHandler):
-#     """
-#     Request handler for botany item count.
-#     """
-#     def get(self, min_level, max_level):
-#         """
-#         Retrieves the count of botany items within a specified level range.
-#         """
-#         self.write(str(len(grab_items_for_level_range(botany_items, min_level, max_level))))
-
-# class MiningItemsCountHandler(BaseHandler):
-#     """
-#     Request handler for mining item count.
-#     """
-#     def get(self, min_level, max_level):
-#         """
-#         Retrieves the count of mining items within a specified level range.
-#         """
-#         self.write(str(len(grab_items_for_level_range(mining_items, min_level, max_level))))
-
-# class FishingItemsCountHandler(BaseHandler):
-#     """
-#     Request handler for fishing item count.
-#     """
-#     def get(self, min_level, max_level):
-#         """
-#         Retrieves the count of fishing items within a specified level range.
-#         """
-#         self.write(str(len(grab_items_for_level_range(fishing_items, min_level, max_level))))
-
-# class CraftingItemsCountHandler(BaseHandler):
-#     """
-#     Request handler for crafting item count.
-#     """
-#     def get(self, crafting_type, min_level, max_level):
-#         """
-#         Retrieves the count of crafting items within a specified level range.
-#         """
-#         self.write(
-#             str(
-#                 len(
-#                     grab_items_for_level_range(
-#                         crafting_items[crafting_type],
-#                         min_level,
-#                         max_level
-#                     )
-#                 )
-#             )
-#         )
+    def get(self):
+        """
+        Retrieves the list of crafting types.
+        """
+        if self.engine is None:
+            self.set_status(500, 'Database engine not passed to handler.')
+            return
+        with Session(self.engine) as session:
+            db_entries = session.query(CraftingType).all()
+            crafting_types = []
+            for entry in db_entries:
+                if entry.name not in crafting_types:
+                    crafting_types.append(entry.name)
+            self.write(json.dumps(crafting_types))
