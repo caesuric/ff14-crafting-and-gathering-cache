@@ -4,6 +4,7 @@ Runs a web server for retrieving gathering and crafting data.
 # pylint: disable=abstract-method
 import asyncio
 import json
+from threading import Thread
 from typing import Optional
 from uuid import uuid4
 from sqlalchemy.engine import Engine
@@ -116,6 +117,17 @@ class ItemsHandler(BaseHandler):
             item_ids = raw_item_ids.split(',')
         item_ids = [int(item_id) for item_id in item_ids]
         self.write(self.job_id)
+        process = Thread(target=self.get_async_portion, args=(item_ids))
+        process.start()
+
+    def get_async_portion(self, item_ids: list[int]):
+        """
+        Asynchronous portion of the get request.
+
+        Args:
+            world (str): World for which to retrieve market data.
+            item_ids (list[int]): IDs of the items for which to retrieve market data.
+        """
         for state in get_basic_item_data(item_ids, self.engine):
             self.status = state
             item_jobs[self.job_id] = state
@@ -186,6 +198,17 @@ class MarketCurrentHandler(BaseHandler):
             item_ids = raw_item_ids.split(',')
         item_ids = [int(item_id) for item_id in item_ids]
         self.write(self.job_id)
+        process = Thread(target=self.get_async_portion, args=(world, item_ids))
+        process.start()
+
+    def get_async_portion(self, world: str, item_ids: list[int]):
+        """
+        Asynchronous portion of the get request.
+
+        Args:
+            world (str): World for which to retrieve market data.
+            item_ids (list[int]): IDs of the items for which to retrieve market data.
+        """
         for state in get_current_item_data(world, item_ids, self.engine):
             self.status = state
             current_market_jobs[self.job_id] = state

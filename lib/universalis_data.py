@@ -30,7 +30,7 @@ def pull_current_item_data(world: str, item_ids: list[int]) -> dict:
     Returns:
         dict: Current item market data.
     """
-    url = f'{UNIVERSALIS_API_BASE_URL}/{world}/{",".join(item_ids)}'
+    url = f'{UNIVERSALIS_API_BASE_URL}/{world}/{",".join([str(item) for item in item_ids])}'
     response = make_get_request(url)
     if response is None:
         return {}
@@ -81,8 +81,8 @@ def get_current_item_data(
                 overall_scraping_data.average_item_market_pull_time_in_seconds * \
                 len(unhandled_ids)
         yield output
-        sets_of_a_hundred = [[unhandled_ids.copy()]]
-        total_data = []
+        sets_of_a_hundred = [unhandled_ids.copy()]
+        total_data = {}
         while len(sets_of_a_hundred[-1]) > 100:
             sets_of_a_hundred.append(sets_of_a_hundred[-1][100:])
         for batch in sets_of_a_hundred:
@@ -91,8 +91,11 @@ def get_current_item_data(
             yield output
             data = pull_current_item_data(world, batch)
             if data:
-                total_data.extend(data)
+                for key, value in data['items']:
+                    total_data[key] = value
         for unhandled_id in unhandled_ids:
+            if unhandled_id not in total_data:
+                continue
             now = datetime.now().astimezone(tz=None)
             if unhandled_id not in stale_ids:
                 new_entry = ItemMarketDataCurrent(
