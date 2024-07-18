@@ -4,6 +4,7 @@ Functions for pulling data from Universalis.
 from datetime import datetime, timedelta, timezone
 import math
 from statistics import median
+import time
 from typing import Generator
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
@@ -17,7 +18,13 @@ from lib.constants import (
     TAX_RATES_PATH,
     HISTORICAL_DATA_PATH
 )
-from lib.database_engine import ItemMarketDataCurrent, ItemMarketDataHistorical, OverallScrapingData, TaxRate, World
+from lib.database_engine import (
+    ItemMarketDataCurrent,
+    ItemMarketDataHistorical,
+    OverallScrapingData,
+    TaxRate,
+    World
+)
 from lib.scraping_utils import make_get_request
 
 
@@ -64,7 +71,7 @@ def get_current_item_data(
             'complete': False,
             'estimated_operation_time': math.inf,
             'operation_time_so_far': 0,
-            'last_update': datetime.now().astimezone(tz=timezone.utc),
+            'last_update': time.time(),
             'items': {}
         }
         for result in results:
@@ -94,7 +101,7 @@ def get_current_item_data(
         for batch in sets_of_a_hundred:
             now = datetime.now().astimezone(tz=None)
             output['operation_time_so_far'] = (now - start_of_operation).total_seconds()
-            output['last_update'] = datetime.now().astimezone(tz=timezone.utc),
+            output['last_update'] = time.time(),
             yield output
             data = pull_current_item_data(world, batch)
             if data:
@@ -207,7 +214,7 @@ def get_historical_item_data(
             'complete': False,
             'estimated_operation_time': math.inf,
             'operation_time_so_far': 0,
-            'last_update': datetime.now().astimezone(tz=timezone.utc),
+            'last_update': time.time(),
             'items': {}
         }
         for result in results:
@@ -243,7 +250,7 @@ def get_historical_item_data(
             now = datetime.now().astimezone(tz=None)
             output['operation_time_so_far'] = (
                 now - start_of_operation).total_seconds()
-            output['last_update'] = datetime.now().astimezone(tz=timezone.utc),
+            output['last_update'] = time.time(),
             yield output
             data = pull_historical_item_data(world, batch)
             if data:
