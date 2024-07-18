@@ -5,6 +5,7 @@ Runs a web server for retrieving gathering and crafting data.
 import asyncio
 import json
 from threading import Thread
+import time
 from typing import Optional
 from uuid import uuid4
 from sqlalchemy.engine import Engine
@@ -25,6 +26,27 @@ from lib.xivapi_data import get_basic_item_data
 item_jobs = {}
 current_market_jobs = {}
 historical_market_jobs = {}
+
+def prune_old_jobs(jobs, expire_time):
+    """
+    Prunes old jobs.
+    """
+    prune_list = []
+    for job_id, job in jobs.items():
+        if job['last_update'] < expire_time:
+            prune_list.append(job_id)
+    for job_id in prune_list:
+        del jobs[job_id]
+
+def expire_old_jobs():
+    """
+    Expires old jobs.
+    """
+    expire_time = time.time() - (60 * 60)
+    prune_old_jobs(item_jobs, expire_time)
+    prune_old_jobs(current_market_jobs, expire_time)
+    prune_old_jobs(historical_market_jobs, expire_time)
+
 
 async def start_web_server(engine: Engine):
     """
@@ -164,8 +186,7 @@ class ItemsResultHandler(BaseHandler):
             return
         status = item_jobs[job_id].copy()
         self.write(json.dumps(status['items']))
-        if status['complete']:
-            del item_jobs[job_id]
+        expire_old_jobs()
 
 
 class MarketCurrentHandler(BaseHandler):
@@ -252,8 +273,7 @@ class MarketCurrentResultHandler(BaseHandler):
             return
         status = current_market_jobs[job_id].copy()
         self.write(json.dumps(status['items']))
-        if status['complete']:
-            del current_market_jobs[job_id]
+        expire_old_jobs()
 
 
 class MarketHistoricalHandler(BaseHandler):
@@ -340,8 +360,7 @@ class MarketHistoricalResultHandler(BaseHandler):
             return
         status = historical_market_jobs[job_id].copy()
         self.write(json.dumps(status['items']))
-        if status['complete']:
-            del historical_market_jobs[job_id]
+        expire_old_jobs()
 
 
 class WorldsHandler(BaseHandler):
