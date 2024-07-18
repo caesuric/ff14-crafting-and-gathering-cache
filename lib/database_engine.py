@@ -4,7 +4,7 @@ Database models and setup.
 #pylint: disable=too-few-public-methods
 import json
 import os.path
-from sqlalchemy import create_engine, ARRAY, Column, DateTime, Float, Integer, String
+from sqlalchemy import create_engine, ARRAY, BigInteger, Column, DateTime, Float, Integer, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy_utils import database_exists, create_database
@@ -69,7 +69,7 @@ class ItemMarketDataHistorical(Base):
     nq_daily_sale_velocity = Column(Integer)
     average_price_per_unit = Column(Integer)
     num_items_sold = Column(Integer)
-    possible_money_per_day = Column(Integer)
+    possible_money_per_day = Column(BigInteger)
     median_stack_size = Column(Float)
     median_price = Column(Float)
     last_data_pull = Column(DateTime)

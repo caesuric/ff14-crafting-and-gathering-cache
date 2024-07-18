@@ -106,19 +106,19 @@ def get_current_item_data(
             data = pull_current_item_data(world, batch)
             if data:
                 if len(unhandled_ids) == 1:
-                    total_data[unhandled_ids[0]] = data
+                    total_data[str(unhandled_ids[0])] = data
                 else:
                     for key, value in data['items'].items():
                         total_data[key] = value
         for unhandled_id in unhandled_ids:
-            if unhandled_id not in total_data:
+            if str(unhandled_id) not in total_data:
                 continue
             now = datetime.now().astimezone(tz=None)
             if unhandled_id not in stale_ids:
                 new_entry = ItemMarketDataCurrent(
                     ffxiv_id=unhandled_id,
                     world=world,
-                    current_min_price_nq=total_data[unhandled_id]['minPriceNQ'],
+                    current_min_price_nq=total_data[str(unhandled_id)]['minPriceNQ'],
                     last_data_pull=now
                 )
             else:
@@ -128,7 +128,7 @@ def get_current_item_data(
                         ItemMarketDataCurrent.world == world
                     ).first()
                 new_entry.last_data_pull = now
-                new_entry.current_min_price_nq = total_data[unhandled_id]['minPriceNQ']
+                new_entry.current_min_price_nq = total_data[str(unhandled_id)]['minPriceNQ']
             session.add(new_entry)
             output['items'][unhandled_id] = {
                 'current_min_price_nq': new_entry.current_min_price_nq
@@ -255,12 +255,12 @@ def get_historical_item_data(
             data = pull_historical_item_data(world, batch)
             if data:
                 if len(unhandled_ids) == 1:
-                    total_data[unhandled_ids[0]] = data
+                    total_data[str(unhandled_ids[0])] = data
                 else:
                     for key, value in data['items'].items():
                         total_data[key] = value
         for unhandled_id in unhandled_ids:
-            if unhandled_id not in total_data:
+            if str(unhandled_id) not in total_data:
                 continue
             now = datetime.now().astimezone(tz=None)
             if unhandled_id not in stale_ids:
@@ -268,7 +268,7 @@ def get_historical_item_data(
                 average_price = 0
                 stack_sizes = []
                 prices = []
-                for entry in total_data[unhandled_id]['entries']:
+                for entry in total_data[str(unhandled_id)]['entries']:
                     num_items_sold += entry['quantity']
                     average_price += entry['pricePerUnit'] * entry['quantity']
                     stack_sizes.append(entry['quantity'])
@@ -283,7 +283,7 @@ def get_historical_item_data(
                 new_entry = ItemMarketDataHistorical(
                     ffxiv_id=unhandled_id,
                     world=world,
-                    nq_daily_sale_velocity=int(total_data[unhandled_id]['nqSaleVelocity'] / 7.0),
+                    nq_daily_sale_velocity=int(total_data[str(unhandled_id)]['nqSaleVelocity'] / 7.0),
                     average_price_per_unit=int(average_price),
                     num_items_sold=num_items_sold,
                     possible_money_per_day = possible_money_per_day,
@@ -292,16 +292,18 @@ def get_historical_item_data(
                     last_data_pull=now
                 )
             else:
-                new_entry = session.query(ItemMarketDataHistorical).filter(
+                new_entry = session.query(ItemMarketDataHistorical).where(
                     ItemMarketDataHistorical.ffxiv_id == unhandled_id
-                ).filter(
+                ).where(
                     ItemMarketDataHistorical.world == world
                 ).first()
                 num_items_sold = 0
+                average_price = 0
                 stack_sizes = []
                 prices = []
-                for entry in total_data[unhandled_id]['entries']:
+                for entry in total_data[str(unhandled_id)]['entries']:
                     num_items_sold += entry['quantity']
+                    average_price += entry['pricePerUnit'] * entry['quantity']
                     stack_sizes.append(entry['quantity'])
                     prices.append(entry['pricePerUnit'])
                 possible_money_per_day = int(
@@ -312,9 +314,9 @@ def get_historical_item_data(
                 median_price = median(prices)
                 new_entry.last_data_pull = now
                 new_entry.nq_daily_sale_velocity = int(
-                    total_data[unhandled_id]['nqSaleVelocity'] / 7.0
+                    total_data[str(unhandled_id)]['nqSaleVelocity'] / 7.0
                 )
-                new_entry.average_price_per_unit = average_price
+                new_entry.average_price_per_unit = int(average_price)
                 new_entry.num_items_sold = num_items_sold
                 new_entry.possible_money_per_day = possible_money_per_day
                 new_entry.median_stack_size = median_stack_size
