@@ -33,8 +33,6 @@ def make_get_request(url: str) -> Optional[Response]:
         if response.status_code != 200:
             print(f'Failed to GET {url}. Status code: {response.status_code}')
             return None
-        print(f'Returning response from {url}.')
-        print(f'Response: {response.text}')
         return response
     except RequestException as e:
         print(f'Failed to GET {url}. Exception: {e}')
