@@ -33,7 +33,7 @@ def prune_old_jobs(jobs, expire_time):
     """
     prune_list = []
     for job_id, job in jobs.items():
-        if job['last_update'] < expire_time:
+        if job['last_update'][0] < expire_time:
             prune_list.append(job_id)
     for job_id in prune_list:
         del jobs[job_id]
