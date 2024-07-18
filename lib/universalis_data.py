@@ -64,6 +64,7 @@ def get_current_item_data(
             'complete': False,
             'estimated_operation_time': math.inf,
             'operation_time_so_far': 0,
+            'last_update': datetime.now().astimezone(tz=timezone.utc),
             'items': {}
         }
         for result in results:
@@ -93,6 +94,7 @@ def get_current_item_data(
         for batch in sets_of_a_hundred:
             now = datetime.now().astimezone(tz=None)
             output['operation_time_so_far'] = (now - start_of_operation).total_seconds()
+            output['last_update'] = datetime.now().astimezone(tz=timezone.utc),
             yield output
             data = pull_current_item_data(world, batch)
             if data:
@@ -205,6 +207,7 @@ def get_historical_item_data(
             'complete': False,
             'estimated_operation_time': math.inf,
             'operation_time_so_far': 0,
+            'last_update': datetime.now().astimezone(tz=timezone.utc),
             'items': {}
         }
         for result in results:
@@ -240,6 +243,7 @@ def get_historical_item_data(
             now = datetime.now().astimezone(tz=None)
             output['operation_time_so_far'] = (
                 now - start_of_operation).total_seconds()
+            output['last_update'] = datetime.now().astimezone(tz=timezone.utc),
             yield output
             data = pull_historical_item_data(world, batch)
             if data:

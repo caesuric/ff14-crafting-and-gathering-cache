@@ -52,6 +52,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
             'complete': False,
             'estimated_operation_time': math.inf,
             'operation_time_so_far': 0,
+            'last_update': datetime.datetime.now().astimezone(tz=datetime.timezone.utc),
             'items': {}
         }
         for result in results:
@@ -76,6 +77,7 @@ def get_basic_item_data(item_ids: list[int], engine: Engine) -> Generator[dict, 
         for unhandled_id in unhandled_ids:
             now = datetime.datetime.now().astimezone(tz=None)
             output['operation_time_so_far'] = (now - start_of_operation).total_seconds()
+            output['last_update'] = datetime.datetime.now().astimezone(tz=datetime.timezone.utc),
             yield output
             data = pull_basic_item_data(unhandled_id)
             if data:
