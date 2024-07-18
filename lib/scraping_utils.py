@@ -21,6 +21,7 @@ def make_get_request(url: str) -> Optional[Response]:
         total = 10,
         read = 10,
         connect = 10,
+        status = 10,
         backoff_factor = 0.3,
         status_forcelist=[429, 500, 502, 503, 504]
     )
@@ -32,6 +33,9 @@ def make_get_request(url: str) -> Optional[Response]:
         if response.status_code != 200:
             print(f'Failed to GET {url}. Status code: {response.status_code}')
             return None
+        print(f'Returning response from {url}.')
+        print(f'Response: {response}')
         return response
-    except RequestException:
+    except RequestException as e:
+        print(f'Failed to GET {url}. Exception: {e}')
         return None
