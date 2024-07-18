@@ -295,7 +295,7 @@ def get_historical_item_data(
                     ffxiv_id=unhandled_id,
                     world=world,
                     nq_daily_sale_velocity=int(
-                        total_data[str(unhandled_id)]['nqSaleVelocity'] / 7.0
+                        total_data[str(unhandled_id)]['nqSaleVelocity']
                     ),
                     average_price_per_unit=int(average_price),
                     num_items_sold=num_items_sold,
@@ -328,7 +328,7 @@ def get_historical_item_data(
                 )
                 new_entry.last_data_pull = now
                 new_entry.nq_daily_sale_velocity = int(
-                    total_data[str(unhandled_id)]['nqSaleVelocity'] / 7.0
+                    total_data[str(unhandled_id)]['nqSaleVelocity']
                 )
                 new_entry.average_price_per_unit = int(average_price)
                 new_entry.num_items_sold = num_items_sold
