@@ -117,7 +117,8 @@ class ItemsHandler(BaseHandler):
         self.write(self.job_id)
         process = Thread(
             target=self.get_async_portion,
-            args=(item_ids)
+            args=(item_ids),
+            name='GetItemsThread'
         )
         process.start()
 
@@ -199,7 +200,11 @@ class MarketCurrentHandler(BaseHandler):
             item_ids = raw_item_ids.split(',')
         item_ids = [int(item_id) for item_id in item_ids]
         self.write(self.job_id)
-        process = Thread(target=self.get_async_portion, args=(world, item_ids))
+        process = Thread(
+            target=self.get_async_portion,
+            args=(world, item_ids),
+            name='GetCurrentMarketDataThread'
+        )
         process.start()
 
     def get_async_portion(self, world: str, item_ids: list[int]):
@@ -283,7 +288,11 @@ class MarketHistoricalHandler(BaseHandler):
             item_ids = raw_item_ids.split(',')
         item_ids = [int(item_id) for item_id in item_ids]
         self.write(self.job_id)
-        process = Thread(target=self.get_async_portion, args=(world, item_ids))
+        process = Thread(
+            target=self.get_async_portion,
+            args=(world, item_ids),
+            name='GetHistoricalMarketDataThread'
+        )
         process.start()
 
     def get_async_portion(self, world: str, item_ids: list[int]):

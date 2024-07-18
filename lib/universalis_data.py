@@ -99,7 +99,7 @@ def get_current_item_data(
                 if len(unhandled_ids) == 1:
                     total_data[unhandled_ids[0]] = data
                 else:
-                    for key, value in data['items']:
+                    for key, value in data['items'].items():
                         total_data[key] = value
         for unhandled_id in unhandled_ids:
             if unhandled_id not in total_data:
@@ -246,7 +246,7 @@ def get_historical_item_data(
                 if len(unhandled_ids) == 1:
                     total_data[unhandled_ids[0]] = data
                 else:
-                    for key, value in data['items']:
+                    for key, value in data['items'].items():
                         total_data[key] = value
         for unhandled_id in unhandled_ids:
             if unhandled_id not in total_data:

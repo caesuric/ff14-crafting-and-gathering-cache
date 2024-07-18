@@ -28,7 +28,11 @@ def start_crafting_and_gathering_scraper(engine: Engine):
     Args:
         engine (Engine): SQLAlchemy engine.
     """
-    scraper_process = Thread(target=scraper_main_thread, args=(engine,))
+    scraper_process = Thread(
+        target=scraper_main_thread,
+        args=(engine,),
+        name='ScraperThread'
+    )
     scraper_process.start()
 
 

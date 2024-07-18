@@ -21,17 +21,17 @@ def make_get_request(url: str) -> Optional[Response]:
         total = 10,
         read = 10,
         connect = 10,
-        backoff_factor = 0.3
+        backoff_factor = 0.3,
+        status_forcelist=[429, 500, 502, 503, 504]
     )
     adapter = HTTPAdapter(max_retries = retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
-    for _ in range(10):
-        try:
-            response = session.get(url)
-            if response.status_code != 200:
-                continue
-            return response
-        except RequestException:
-            continue
-    return None
+    try:
+        response = session.get(url)
+        if response.status_code != 200:
+            print(f'Failed to GET {url}. Status code: {response.status_code}')
+            return None
+        return response
+    except RequestException:
+        return None
