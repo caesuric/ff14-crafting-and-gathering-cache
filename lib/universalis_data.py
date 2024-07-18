@@ -39,7 +39,12 @@ def pull_current_item_data(world: str, item_ids: list[int]) -> dict:
     Returns:
         dict: Current item market data.
     """
-    url = f'{UNIVERSALIS_API_BASE_URL}/{world}/{",".join([str(item) for item in item_ids])}'
+    if len(item_ids) == 0:
+        return {}
+    if len(item_ids) == 1:
+        url = f'{UNIVERSALIS_API_BASE_URL}/{world}/{item_ids[0]}'
+    else:
+        url = f'{UNIVERSALIS_API_BASE_URL}/{world}/{",".join([str(item) for item in item_ids])}'
     response = make_get_request(url)
     if response is None:
         return {}
@@ -179,7 +184,12 @@ def pull_historical_item_data(world: str, item_ids: list[int]) -> dict:
     Returns:
         dict: Historical item market data.
     """
-    url = f'{UNIVERSALIS_API_BASE_URL}/{HISTORICAL_DATA_PATH}/{world}/{",".join([str(item) for item in item_ids])}?entriesWithin=2592000'
+    if len(item_ids) == 0:
+        return {}
+    if len(item_ids) == 1:
+        url = f'{UNIVERSALIS_API_BASE_URL}/{HISTORICAL_DATA_PATH}/{world}/{item_ids[0]}?entriesWithin=2592000'
+    else:
+        url = f'{UNIVERSALIS_API_BASE_URL}/{HISTORICAL_DATA_PATH}/{world}/{",".join([str(item) for item in item_ids])}?entriesWithin=2592000'
     response = make_get_request(url)
     if response is None:
         return {}
