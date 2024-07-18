@@ -284,16 +284,19 @@ def get_historical_item_data(
                     stack_sizes.append(entry['quantity'])
                     prices.append(entry['pricePerUnit'])
                 average_price /= num_items_sold
-                possible_money_per_day = int(
-                    num_items_sold *
-                    average_price
-                )
                 median_stack_size = median(stack_sizes)
                 median_price = median(prices)
+                possible_money_per_day = int(
+                    num_items_sold *
+                    median_price /
+                    30
+                )
                 new_entry = ItemMarketDataHistorical(
                     ffxiv_id=unhandled_id,
                     world=world,
-                    nq_daily_sale_velocity=int(total_data[str(unhandled_id)]['nqSaleVelocity'] / 7.0),
+                    nq_daily_sale_velocity=int(
+                        total_data[str(unhandled_id)]['nqSaleVelocity']
+                    ),
                     average_price_per_unit=int(average_price),
                     num_items_sold=num_items_sold,
                     possible_money_per_day = possible_money_per_day,
@@ -316,15 +319,16 @@ def get_historical_item_data(
                     average_price += entry['pricePerUnit'] * entry['quantity']
                     stack_sizes.append(entry['quantity'])
                     prices.append(entry['pricePerUnit'])
-                possible_money_per_day = int(
-                    num_items_sold *
-                    average_price
-                )
                 median_stack_size = median(stack_sizes)
                 median_price = median(prices)
+                possible_money_per_day = int(
+                    num_items_sold *
+                    median_price /
+                    30
+                )
                 new_entry.last_data_pull = now
                 new_entry.nq_daily_sale_velocity = int(
-                    total_data[str(unhandled_id)]['nqSaleVelocity'] / 7.0
+                    total_data[str(unhandled_id)]['nqSaleVelocity']
                 )
                 new_entry.average_price_per_unit = int(average_price)
                 new_entry.num_items_sold = num_items_sold
