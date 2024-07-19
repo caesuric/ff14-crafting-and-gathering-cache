@@ -283,7 +283,8 @@ def get_historical_item_data(
                     average_price += entry['pricePerUnit'] * entry['quantity']
                     stack_sizes.append(entry['quantity'])
                     prices.append(entry['pricePerUnit'])
-                average_price /= num_items_sold
+                if num_items_sold > 0:
+                    average_price /= num_items_sold
                 median_stack_size = median(stack_sizes)
                 median_price = median(prices)
                 possible_money_per_day = int(
@@ -319,6 +320,8 @@ def get_historical_item_data(
                     average_price += entry['pricePerUnit'] * entry['quantity']
                     stack_sizes.append(entry['quantity'])
                     prices.append(entry['pricePerUnit'])
+                if num_items_sold > 0:
+                    average_price /= num_items_sold
                 median_stack_size = median(stack_sizes)
                 median_price = median(prices)
                 possible_money_per_day = int(
