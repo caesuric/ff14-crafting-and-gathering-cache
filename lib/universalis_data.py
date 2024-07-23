@@ -86,7 +86,8 @@ def get_current_item_data(
             if result.last_data_pull.astimezone(timezone.utc) < stale_date:
                 stale_ids.append(result.ffxiv_id)
                 continue
-            unhandled_ids.remove(result.ffxiv_id)
+            if result.ffxiv_id in unhandled_ids:
+                unhandled_ids.remove(result.ffxiv_id)
             output['items'][result.ffxiv_id] = {
                 'current_min_price_nq': result.current_min_price_nq
             }
