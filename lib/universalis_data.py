@@ -235,7 +235,8 @@ def get_historical_item_data(
             if result.last_data_pull.astimezone(timezone.utc) < stale_date:
                 stale_ids.append(result.ffxiv_id)
                 continue
-            unhandled_ids.remove(result.ffxiv_id)
+            if result.ffxiv_id in unhandled_ids:
+                unhandled_ids.remove(result.ffxiv_id)
             output['items'][result.ffxiv_id] = {
                 'nq_daily_sale_velocity': result.nq_daily_sale_velocity,
                 'average_price_per_unit': result.average_price_per_unit,
